@@ -12,7 +12,7 @@ from funfactory.urlresolvers import reverse
 
 from mozillians.common.decorators import allow_unvouched
 from mozillians.groups.models import Group, Skill
-from mozillians.groups.forms import SortForm
+from mozillians.groups.forms import GroupForm, SortForm
 from mozillians.users.tasks import update_basket_task
 
 
@@ -131,6 +131,10 @@ def show(request, url, alias_model, template):
     return render(request, template, data)
 
 
+def edit(request, url, alias_model, template):
+    return render(request, alias_model, template)
+
+
 @require_POST
 def toggle_group_subscription(request, url):
     """Toggle the current user's membership of a group."""
@@ -160,3 +164,18 @@ def toggle_skill_subscription(request, url):
         profile.skills.add(skill)
 
     return redirect(reverse('groups:show_skill', args=[skill.url]))
+
+
+def group_add(request):
+    instance = Group(curator=request.user.userprofile)
+    if request.method == 'POST':
+        form = GroupForm(request.POST, instance=instance)
+        if form.is_valid():
+            group = form.save()
+            return redirect(reverse('groups:show_group', args=[group.url]))
+    else:
+        form = GroupForm(instance=instance)
+    context = {
+        'form': form,
+    }
+    return render(request, 'groups/add.html', context)

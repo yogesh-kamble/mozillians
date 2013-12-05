@@ -9,18 +9,6 @@
 {% endblock %}
 {% block body_id %}edit-profile{% endblock %}
 
-{% macro privacy_field(field) %}
-<div class="privacy-controls">
-  {{ bootstrap(field_with_attrs(field,
-                                **{'class':'privacy-choice',
-                                   'label': _('Visible to:'),
-                                   'data-privacy-original': field.value()})) }}
-</div>
-{% endmacro %}
-{% macro required_field(field) %}
-  {{ bootstrap(field_with_attrs(field, **{'label': (field.label + '<span> *</span>')|safe  })) }}
-{% endmacro %}
-
 {% block extrahead %}
   {% compress css %}
     {{ profile_form.media.css }}
