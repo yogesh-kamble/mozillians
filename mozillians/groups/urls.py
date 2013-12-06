@@ -13,16 +13,16 @@ urlpatterns = patterns(
     url('^group_add/$', 'views.group_add_edit', name='group_add'),
     url('^group_edit/(?P<url>[-\'\w]+)/$', 'views.group_add_edit', name='group_edit'),
 
-    url('^group/(?P<url>[-\'\w]+)/$', 'views.show',
+    url('^group/(?P<url>[-\w]+)/$', 'views.show',
         {'alias_model': GroupAlias, 'template': 'groups/group.html'},
         name='show_group'),
-    url('^group/(?P<url>[-\'\w]+)/toggle/$', 'views.toggle_group_subscription',
+    url('^group/(?P<url>[-\w]+)/toggle/$', 'views.toggle_group_subscription',
         name='toggle_group_subscription'),
 
-    url('^skill/(?P<url>[-\'\w]+)/$', 'views.show',
+    url('^skill/(?P<url>[-\w]+)/$', 'views.show',
         {'alias_model': SkillAlias, 'template': 'groups/skill.html'},
         name='show_skill'),
-    url('^skill/(?P<url>[-\'\w]+)/toggle/$', 'views.toggle_skill_subscription',
+    url('^skill/(?P<url>[-\w]+)/toggle/$', 'views.toggle_skill_subscription',
         name='toggle_skill_subscription'),
 
     url('^groups/search/$', 'views.search',
