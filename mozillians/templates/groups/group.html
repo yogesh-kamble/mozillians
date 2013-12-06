@@ -24,14 +24,14 @@
 
     <article class="group-meta">
 
+        {% if is_curator or request.user.is_staff %}
+          <a class="button right" href="{{ url('groups:group_edit', group.url) }}">{{ _('Edit Group') }}</a>
+        {% endif %}
+
         {% if group.description %}
           <p>{{ group.description }}</p>
         {% endif %}
 
-        {# FIXME - style as a button and put it in the right place #}
-        {% if is_curator or request.user.is_staff %}
-          <p><a href="{{ url('groups:group_edit', group.url) }}">{{ _('Edit Group') }}</a></p>
-        {% endif %}
 
         <div class="row">
 
