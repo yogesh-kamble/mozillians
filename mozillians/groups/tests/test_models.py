@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from django.core.urlresolvers import reverse
+
 from nose.tools import eq_, ok_
 
 from mozillians.common.tests import TestCase
@@ -98,3 +100,8 @@ class GroupAliasBaseTests(TestCase):
         group_1 = GroupFactory.create(name='foo-1')
         group_2 = GroupFactory.create(name='foo 1')
         ok_(group_1.url != group_2.url)
+
+    def test_auto_slug_field_urlness(self):
+        # The auto slug field comes up with a string that our group URLs will match
+        group = GroupFactory.create(name='A (ñâme)-with_"s0me" \'screwy\' chars')
+        reverse('groups:show_group', args=[group.url])

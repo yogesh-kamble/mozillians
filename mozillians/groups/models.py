@@ -1,4 +1,5 @@
 from django.db import models
+from django.template.defaultfilters import slugify
 
 from autoslug.fields import AutoSlugField
 from tower import ugettext_lazy as _lazy
@@ -69,7 +70,8 @@ class GroupBase(models.Model):
 class GroupAliasBase(models.Model):
     name = models.CharField(max_length=50, unique=True)
     url = AutoSlugField(populate_from='name', unique=True,
-                        editable=False, blank=True)
+                        editable=False, blank=True,
+                        slugify=slugify)
 
     class Meta:
         abstract = True
