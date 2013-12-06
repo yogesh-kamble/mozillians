@@ -98,7 +98,7 @@ class Group(GroupBase):
                               help_text=_lazy(u'A URL of a web site with more information about this group (optional).'),
                               default='', blank=True)
     wiki = models.URLField(max_length=200, verbose_name=_lazy(u'Wiki'),
-                              help_text=_lazy(u'A URL of a wiki with more information about this group (optional).'),
+                           help_text=_lazy(u'A URL of a wiki with more information about this group (optional).'),
                            default='', blank=True)
     members_can_leave = models.BooleanField(default=True)
     accepting_new_members = models.CharField(

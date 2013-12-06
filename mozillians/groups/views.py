@@ -97,7 +97,7 @@ def show(request, url, alias_model, template):
     group = group_alias.alias
     profile = request.user.userprofile
     in_group = group.members.filter(pk=profile.pk).exists()
-    is_curator = profile == group.curator
+    is_curator = isinstance(group, Group) and profile == group.curator
     profiles = group.members.vouched()
 
     page = request.GET.get('page', 1)
@@ -187,7 +187,6 @@ def group_add_edit(request, url=None):
             return redirect(reverse('groups:show_group', args=[group.url]))
     else:
         group = Group(curator=profile)
-
 
     form_class = StaffGroupForm if request.user.is_staff else GroupForm
 
