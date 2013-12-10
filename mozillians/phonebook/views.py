@@ -118,11 +118,19 @@ def view_profile(request, username):
         if (not profile.is_vouched
             and request.user.is_authenticated()
             and request.user.userprofile.is_vouched):
-            data['vouch_form'] = (
-                forms.VouchForm(initial={'vouchee': profile.pk}))
+                data['vouch_form'] = (
+                    forms.VouchForm(initial={'vouchee': profile.pk}))
 
     data['shown_user'] = profile.user
     data['profile'] = profile
+    data['groups'] = profile.get_annotated_groups()
+
+    # Only show pending groups if user is looking at their own profile,
+    # or current user is a superuser
+    if not (request.user.is_authenticated()
+            and (request.user.username == username or request.user.is_superuser)):
+        data['groups'] = [grp for grp in data['groups'] if not grp.pending]
+
     return render(request, 'phonebook/profile.html', data)
 
 

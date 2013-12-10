@@ -6,7 +6,7 @@
 // =====================
 // Imports
 // Fonts
-// Variables
+// Colors
 // Mixins
 // Generic
 // Navigation
@@ -28,6 +28,7 @@
 @import "sandstone/sandstone-resp.less";
 @import "mosaic.less";
 @import "font-awesome.less";
+@import "less-prefixer/prefixer.less";
 
 /* Fonts
 ==================== */
@@ -52,7 +53,7 @@
     font-style: italic;
 }
 
-/* Variables
+/* Colors
 ==================== */
 @white:       #FFFFFF;
 @black:       #000000;
@@ -60,15 +61,8 @@
 @gray:        #666666;
 @grayLight:   #F5F5F5;
 @grayLighter: #CCCCCC;
-
-/* Mixins
-==================== */
-.transform(@string){
-    -webkit-transform:  @string;
-    -moz-transform:     @string;
-    -ms-transform:      @string;
-    -o-transform:       @string;
-}
+@blueDark:    #277AC1;
+@blueLight:   #43A6E2;
 
 #gradient {
     .vertical-transparent-fade(@direction, @startColor, @endColor) {
@@ -374,7 +368,7 @@ dl, dd {
 }
 
 #nav-background {
-    #gradient .vertical(#4ba5dd, #3582bf);
+    .gradient(top, #4ba5dd, #3582bf);
 }
 
 nav {
@@ -436,7 +430,7 @@ nav {
             padding: 0 10px 0 3px;
             .border-radius(3px 0 0 3px);
             margin-right: 20px;
-            #gradient .vertical(#43a6e2, #287cc2);
+            .gradient(#43a6e2, #43a6e2, #287cc2);
             &:after {
                 content: '';
                 position: absolute;
@@ -1523,10 +1517,9 @@ body.search-page {
         @media (max-width: @breakMobileLandscape) {
             width: 100%;
         }
-        a {
+        .card {
             margin-bottom: 15px;
-            .button;
-            .button-sand;
+            .well;
             padding: 8px 10px 5px;
             width: 278px;
             height: 100px;
@@ -1666,8 +1659,6 @@ body#group-show {
         position: absolute;
         right: -10px;
         top: -10px;
-        /*min-width:21px;
-        width: 21px;*/
         height: 21px;
         line-height: 20px;
         padding: 0 0 0 0.2em;
@@ -1675,6 +1666,31 @@ body#group-show {
         span{
             font-weight:normal;
         }
+    }
+    [class^="status"]{
+        position: absolute;
+        bottom: 1em;
+        right: 0;
+        line-height: 1em;
+        padding: 5px 16px;
+        margin: 1px 0;
+        border-radius: 4px 0;
+        color: #FFF;
+        border-width: 0 1px 1px 0;
+        border-style: solid;
+        .box-shadow(inset 0px 2px 6px rgba(0, 0, 0, 0.26));
+    }
+    [class$="member"]{
+        .gradient(#277AC1, #277AC1, #6CA2D3);
+        border-color: #88A2C4;
+    }
+    [class$="pending"]{
+        .gradient(#CCC, #BEBEBE, #D1D1D1);
+        border-color: #C5C5C5;
+    }
+    [class$="pending"]:hover{
+        .gradient(#277AC1, #277AC1, @blueDark);
+        .box-shadow(inset 0px 12px 24px 2px @blueLight);
     }
     .group-meta {
         .well;

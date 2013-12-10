@@ -4,8 +4,9 @@ from django.core.urlresolvers import reverse
 from nose.tools import eq_, ok_
 
 from mozillians.common.tests import TestCase
-from mozillians.groups.models import Group, GroupAlias
-from mozillians.groups.tests import GroupAliasFactory, GroupFactory
+from mozillians.groups.models import Group, GroupAlias, GroupMembership
+from mozillians.groups.tests import GroupAliasFactory, GroupFactory, \
+    SkillFactory
 from mozillians.users.tests import UserFactory
 
 
@@ -63,22 +64,45 @@ class GroupBaseTests(TestCase):
         eq_(len(results), 1)
         eq_(results[0], group_1)
 
+    def test_add_member(self):
+        skill = SkillFactory.create()
+        user = UserFactory.create()
+        ok_(user.userprofile not in skill.members.all())
+        skill.add_member(userprofile=user.userprofile)
+        ok_(user.userprofile in skill.members.all())
+        ok_(skill.has_member(userprofile=user.userprofile))
+
+    def test_remove_member(self):
+        skill = SkillFactory.create()
+        user = UserFactory.create()
+        skill.members.add(user.userprofile)
+        skill.remove_member(userprofile=user.userprofile)
+        ok_(not skill.has_member(userprofile=user.userprofile))
+        ok_(user.userprofile not in skill.members.all())
+
+    def test_has_member(self):
+        skill = SkillFactory.create()
+        user = UserFactory.create()
+        ok_(not skill.has_member(userprofile=user.userprofile))
+        skill.members.add(user.userprofile)
+        ok_(skill.has_member(userprofile=user.userprofile))
+
 
 class GroupTests(TestCase):
     def test_get_non_functional_areas(self):
-        user_1 = UserFactory.create()
-        user_2 = UserFactory.create()
-        cgroup_1 = GroupFactory.create(functional_area=True)
+        UserFactory.create()
+        UserFactory.create()
+        GroupFactory.create(functional_area=True)
         cgroup_2 = GroupFactory.create(functional_area=False)
         eq_(set(Group.get_non_functional_areas()), set([cgroup_2]))
 
     def test_get_functional_areas(self):
         GroupFactory.create()
         GroupFactory.create()
-        user_1 = UserFactory.create()
-        user_2 = UserFactory.create()
+        UserFactory.create()
+        UserFactory.create()
         cgroup_1 = GroupFactory.create(functional_area=True)
-        cgroup_2 = GroupFactory.create(functional_area=False)
+        GroupFactory.create(functional_area=False)
         eq_(set(Group.get_functional_areas()), set([cgroup_1]))
 
     def test_deleted_curator_sets_null(self):
@@ -88,6 +112,41 @@ class GroupTests(TestCase):
         user.delete()
         group = Group.objects.get(id=group.id)
         eq_(group.curator, None)
+
+    def test_remove_member(self):
+        user = UserFactory.create()
+        group = GroupFactory.create()
+        GroupMembership.objects.create(userprofile=user.userprofile, group=group,
+                                       status=GroupMembership.MEMBER)
+        ok_(group.has_member(user.userprofile))
+
+        group.remove_member(user.userprofile)
+        ok_(not GroupMembership.objects.filter(userprofile=user.userprofile, group=group).exists())
+        ok_(not group.has_member(user.userprofile))
+
+    def test_add_member(self):
+        user = UserFactory.create()
+        group = GroupFactory.create()
+        ok_(not group.has_member(user.userprofile))
+        group.add_member(user.userprofile)
+        ok_(GroupMembership.objects.filter(userprofile=user.userprofile, group=group,
+                                           status=GroupMembership.MEMBER).exists())
+        ok_(group.has_member(user.userprofile))
+        group.add_member(user.userprofile, status=GroupMembership.PENDING)
+        ok_(GroupMembership.objects.filter(userprofile=user.userprofile, group=group,
+                                           status=GroupMembership.PENDING).exists())
+        ok_(not group.has_member(user.userprofile))
+        ok_(group.has_pending_member(user.userprofile))
+
+    def test_has_member(self):
+        user = UserFactory.create()
+        group = GroupFactory.create()
+        ok_(not group.has_member(user.userprofile))
+        GroupMembership.objects.create(userprofile=user.userprofile, group=group,
+                                       status=GroupMembership.MEMBER)
+        ok_(group.has_member(user.userprofile))
+        group.remove_member(user.userprofile)
+        ok_(not group.has_member(user.userprofile))
 
 
 class GroupAliasBaseTests(TestCase):
