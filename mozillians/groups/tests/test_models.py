@@ -103,5 +103,11 @@ class GroupAliasBaseTests(TestCase):
 
     def test_auto_slug_field_urlness(self):
         # The auto slug field comes up with a string that our group URLs will match
-        group = GroupFactory.create(name='A (ñâme)-with_"s0me" \'screwy\' chars')
+        group = GroupFactory.create(name=u'A (ñâme)-with_"s0me" \'screwy\' chars')
         reverse('groups:show_group', args=[group.url])
+
+    def test_auto_slug_field_unicode(self):
+        # The auto slug field dumbs down unicode into ASCII rather than just
+        # throwing it away
+        group = GroupFactory.create(name=u'A (ñâme)-with_ελλάδα "s0me" \'screwy\' chars')
+        eq_(u'a-name-with_ellada-s0me-screwy-chars', group.url)

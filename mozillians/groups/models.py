@@ -1,8 +1,9 @@
 from django.db import models
-from django.template.defaultfilters import slugify
 
 from autoslug.fields import AutoSlugField
 from tower import ugettext_lazy as _lazy
+
+from mozillians.groups.helpers import slugify
 
 
 class GroupBase(models.Model):
