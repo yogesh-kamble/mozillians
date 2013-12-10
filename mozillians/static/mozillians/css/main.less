@@ -117,6 +117,8 @@
 
 .left{float:left;}
 .right{float:right;}
+.html-rtl .left{float:right}
+.html-rtl .right{float:left;}
 .clear{clear:both;}
 
 body {
@@ -1511,6 +1513,7 @@ body#edit-profile {
 ====================================================== */
 body.search-page {
     .result {
+        position:relative;
         float: left;
         margin-left: 20px;
         height: 130px;
@@ -1658,6 +1661,20 @@ body#search {
 body#group-show {
     button {
         .button;
+    }
+    .button.remove{
+        position: absolute;
+        right: -10px;
+        top: -10px;
+        /*min-width:21px;
+        width: 21px;*/
+        height: 21px;
+        line-height: 20px;
+        padding: 0 0 0 0.2em;
+        border-radius: 10px;
+        span{
+            font-weight:normal;
+        }
     }
     .group-meta {
         .well;
