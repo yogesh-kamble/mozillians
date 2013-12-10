@@ -1,4 +1,7 @@
+from django.template.defaultfilters import slugify as django_slugify
+
 from jingo import register
+from unidecode import unidecode
 
 
 @register.function
@@ -8,3 +11,8 @@ def stringify_groups(groups):
 
     """
     return u','.join([group.name for group in groups])
+
+
+def slugify(s):
+    """Slugify function that dumbs down but preserves non-Latin chars"""
+    return django_slugify(unidecode(s))

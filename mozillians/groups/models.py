@@ -3,6 +3,8 @@ from django.db import models
 from autoslug.fields import AutoSlugField
 from tower import ugettext_lazy as _lazy
 
+from mozillians.groups.helpers import slugify
+
 
 class GroupBase(models.Model):
     name = models.CharField(db_index=True, max_length=50, unique=True)
@@ -69,7 +71,8 @@ class GroupBase(models.Model):
 class GroupAliasBase(models.Model):
     name = models.CharField(max_length=50, unique=True)
     url = AutoSlugField(populate_from='name', unique=True,
-                        editable=False, blank=True)
+                        editable=False, blank=True,
+                        slugify=slugify)
 
     class Meta:
         abstract = True
