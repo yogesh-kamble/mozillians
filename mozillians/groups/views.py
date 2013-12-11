@@ -48,7 +48,7 @@ def index_groups(request):
     """Lists all public groups (in use) on Mozillians."""
     # Omit functional areas, invisible groups, and groups with
     # no vouched members
-    query = Group.get_non_functional_areas().filter(members__is_vouched=True)
+    query = Group.get_non_functional_areas(members__is_vouched=True)
     template = 'groups/index_groups.html'
     return _list_groups(request, template, query)
 

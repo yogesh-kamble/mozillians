@@ -123,15 +123,19 @@ class Group(GroupBase):
             num_members=models.Count('members'))
 
     @classmethod
-    def get_non_functional_areas(cls):
-        """Return all visible groups that are not functional areas."""
-        return cls.objects.filter(functional_area=False, visible=True).annotate(
+    def get_non_functional_areas(cls, **kwargs):
+        """
+        Return all visible groups that are not functional areas.
+
+        Use kwargs to apply additional filtering to the groups.
+        """
+        return cls.objects.filter(functional_area=False, visible=True, **kwargs).annotate(
             num_members=models.Count('members'))
 
     @classmethod
     def get_curated(cls):
         """Return all non-functional areas that are curated."""
-        return cls.get_non_functional_areas().filter(curator__isnull=False)
+        return cls.get_non_functional_areas(curator__isnull=False)
 
     @classmethod
     def search(cls, query):
