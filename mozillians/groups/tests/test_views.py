@@ -100,10 +100,12 @@ class IndexTests(TestCase):
     def test_index(self):
         user_1 = UserFactory.create(userprofile={'is_vouched': True})
         user_2 = UserFactory.create()
+        user_3 = UserFactory.create(userprofile={'is_vouched': True})
         group_1 = GroupFactory.create()
         group_2 = GroupFactory.create()
         group_3 = GroupFactory.create()
         group_1.members.add(user_1.userprofile)
+        group_1.members.add(user_3.userprofile)
         group_2.members.add(user_1.userprofile)
         group_3.members.add(user_2.userprofile)
 
@@ -113,6 +115,10 @@ class IndexTests(TestCase):
         self.assertTemplateUsed(response, 'groups/index_groups.html')
         eq_(set(response.context['groups'].paginator.object_list),
             set([group_1, group_2]))
+
+        # Member counts
+        group1 = response.context['groups'].paginator.object_list.get(pk=group_1.pk)
+        eq_(group1.num_members, 2)
 
     @requires_login()
     def test_index_anonymous(self):
