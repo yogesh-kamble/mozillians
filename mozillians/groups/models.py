@@ -16,8 +16,6 @@ class GroupBase(models.Model):
 
     @classmethod
     def search(cls, query):
-        if not query:
-            return []
         query = query.lower()
         results = cls.objects.filter(aliases__name__contains=query)
         results = results.distinct()
