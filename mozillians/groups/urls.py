@@ -10,6 +10,9 @@ urlpatterns = patterns(
     url('^functional-areas/$', 'views.index_functional_areas',
         name='index_functional_areas'),
 
+    url('^group_add/$', 'views.group_add_edit', name='group_add'),
+    url('^group_edit/(?P<url>[-\'\w]+)/$', 'views.group_add_edit', name='group_edit'),
+
     url('^group/(?P<url>[-\w]+)/$', 'views.show',
         {'alias_model': GroupAlias, 'template': 'groups/group.html'},
         name='show_group'),

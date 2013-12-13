@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from django.contrib import messages
 from django.core.paginator import EmptyPage, Paginator, PageNotAnInteger
 from django.db.models import Count
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -9,10 +10,11 @@ from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.http import require_POST
 
 from funfactory.urlresolvers import reverse
+from tower import ugettext as _
 
 from mozillians.common.decorators import allow_unvouched
 from mozillians.groups.models import Group, Skill
-from mozillians.groups.forms import SortForm
+from mozillians.groups.forms import GroupForm, SortForm, StaffGroupForm
 from mozillians.users.tasks import update_basket_task
 
 
@@ -93,7 +95,9 @@ def show(request, url, alias_model, template):
         return redirect('groups:show_group', url=group_alias.alias.url)
 
     group = group_alias.alias
-    in_group = group.members.filter(user=request.user).exists()
+    profile = request.user.userprofile
+    in_group = group.members.filter(pk=profile.pk).exists()
+    is_curator = isinstance(group, Group) and profile == group.curator
     profiles = group.members.vouched()
 
     page = request.GET.get('page', 1)
@@ -111,6 +115,7 @@ def show(request, url, alias_model, template):
     data = dict(people=people,
                 group=group,
                 in_group=in_group,
+                is_curator=is_curator,
                 show_pagination=show_pagination,
                 show_join_button=group.user_can_join(request.user),
                 show_leave_button=group.user_can_leave(request.user),
@@ -129,6 +134,10 @@ def show(request, url, alias_model, template):
         data.update(members=profiles.count())
 
     return render(request, template, data)
+
+
+def edit(request, url, alias_model, template):
+    return render(request, alias_model, template)
 
 
 @require_POST
@@ -160,3 +169,42 @@ def toggle_skill_subscription(request, url):
         profile.skills.add(skill)
 
     return redirect(reverse('groups:show_skill', args=[skill.url]))
+
+
+def group_add_edit(request, url=None):
+    """
+    Add or edit a group.  (If a url is passed in, we're editing.)
+    """
+
+    profile = request.user.userprofile
+    if url:
+        # Get the group to edit
+        group = get_object_or_404(Group, url=url)
+        # Only a group curator or an admin is allowed to edit a group
+        is_curator = profile == group.curator
+        if not (is_curator or request.user.is_staff):
+            messages.error(request, _('You must be a curator or an admin to edit a group'))
+            return redirect(reverse('groups:show_group', args=[group.url]))
+    else:
+        group = Group(curator=profile)
+
+    form_class = StaffGroupForm if request.user.is_staff else GroupForm
+
+    if request.method == 'POST':
+        form = form_class(request.POST, instance=group)
+        if form.is_valid():
+            group = form.save()
+            # Ensure curator is in the group when it's created
+            if profile == group.curator and not profile.groups.filter(id=group.id).exists():
+                profile.groups.add(group)
+                update_basket_task.delay(profile.id)
+            return redirect(reverse('groups:show_group', args=[group.url]))
+    else:
+        form = form_class(instance=group)
+
+    context = {
+        'form': form,
+        'creating': url is None,
+        'group': group if url else None,
+    }
+    return render(request, 'groups/add_edit.html', context)

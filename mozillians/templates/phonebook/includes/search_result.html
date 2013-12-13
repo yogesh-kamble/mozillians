@@ -1,4 +1,7 @@
 <div class="result">
+  {% if is_curator or request.user.is_staff %}
+  <div class="button remove">Remove <span>✖</span></div>
+  {% endif %}
   <a class="js-btn" title="{{ profile.display_name }}"
      href="{{ url('phonebook:profile_view', profile.user.username) }}">
     <div class="avatar">

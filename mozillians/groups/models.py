@@ -93,25 +93,28 @@ class Group(GroupBase):
                                 related_name='groups_curated')
     irc_channel = models.CharField(max_length=63,
                                    verbose_name=_lazy(u'IRC Channel'),
+                                   help_text=_lazy(u'An IRC channel where this group is discussed (optional).'),
                                    default='', blank=True)
     website = models.URLField(max_length=200, verbose_name=_lazy(u'Website'),
+                              help_text=_lazy(u'A URL of a web site with more information about this group (optional).'),
                               default='', blank=True)
     wiki = models.URLField(max_length=200, verbose_name=_lazy(u'Wiki'),
+                           help_text=_lazy(u'A URL of a wiki with more information about this group (optional).'),
                            default='', blank=True)
     members_can_leave = models.BooleanField(default=True)
     accepting_new_members = models.CharField(
         choices=(
-            ("yes", _lazy(u"Yes")),
-            ("by_request", _lazy(u"By request")),
-            ("no", _lazy(u"No")),
+            ('yes', _lazy(u'Yes')),
+            ('by_request', _lazy(u'By request')),
+            ('no', _lazy(u'No')),
         ),
-        default="by_request",
+        default='by_request',
         max_length=10
     )
     functional_area = models.BooleanField(default=False)
     visible = models.BooleanField(
         default=True,
-        help_text="Whether group is shown on the UI (in group lists, search, etc). Mainly intended to keep system groups like 'staff' from cluttering up the interface."
+        help_text='Whether group is shown on the UI (in group lists, search, etc). Mainly intended to keep system groups like "staff" from cluttering up the interface.'
     )
 
     @classmethod
