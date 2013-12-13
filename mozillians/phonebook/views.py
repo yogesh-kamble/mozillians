@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.forms.models import inlineformset_factory
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import render
 from django.views.decorators.cache import cache_page, never_cache
@@ -25,7 +24,8 @@ from mozillians.groups.models import Group
 from mozillians.phonebook.models import Invite
 from mozillians.phonebook.utils import update_invites
 from mozillians.users.managers import EMPLOYEES, MOZILLIANS, PUBLIC, PRIVILEGED
-from mozillians.users.models import COUNTRIES, ExternalAccount, UserProfile
+from mozillians.users.models import COUNTRIES, UserProfile
+
 
 class BrowserIDVerify(Verify):
     def form_valid(self, form):
@@ -147,7 +147,7 @@ def edit_profile(request):
 
     profile_form = form(request.POST or None, request.FILES or None,
                         instance=profile, locale=request.locale,
-                        initial=dict(groups=user_groups, skills=user_skills,
+                        initial=dict(skills=user_skills,
                                      languages=user_languages))
 
     email_form = forms.EmailForm(request.POST or None,
@@ -177,8 +177,8 @@ def edit_profile(request):
 
     data = dict(profile_form=profile_form,
                 user_form=user_form,
-                accounts_formset = accounts_formset,
-                email_form = email_form,
+                accounts_formset=accounts_formset,
+                email_form=email_form,
                 user_groups=user_groups,
                 my_vouches=UserProfile.objects.filter(vouched_by=profile),
                 profile=request.user.userprofile,
@@ -214,7 +214,6 @@ def delete(request):
 
 @allow_public
 def search(request):
-    num_pages = 0
     limit = None
     people = []
     show_pagination = False
