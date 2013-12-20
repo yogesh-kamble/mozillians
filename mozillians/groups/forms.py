@@ -27,8 +27,8 @@ class GroupForm(happyforms.ModelForm):
                   'website', 'wiki']
 
 
-class StaffGroupForm(happyforms.ModelForm):
-    """Form used by staff members (admins) when editing a group"""
+class SuperuserGroupForm(happyforms.ModelForm):
+    """Form used by superusers (admins) when editing a group"""
     class Meta:
         model = Group
         fields = ['name', 'description', 'irc_channel',

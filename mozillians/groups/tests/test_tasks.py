@@ -16,7 +16,7 @@ class TaskTests(TestCase):
         skill_1 = SkillFactory.create()
         SkillFactory.create()
 
-        group_1.members.add(user.userprofile)
+        group_1.add_member(user.userprofile)
         skill_1.members.add(user.userprofile)
 
         tasks.remove_empty_groups()
