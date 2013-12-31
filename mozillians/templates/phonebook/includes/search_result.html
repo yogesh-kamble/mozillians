@@ -1,5 +1,5 @@
 <div class="result">
-  {% if group and (is_curator or request.user.is_superuser) %}
+  {% if group and (is_curator or request.user.is_superuser) and (request.user != profile.user) %}
     <form action="{{ url('groups:remove_member', group_pk=group.pk, user_pk=profile.pk) }}" method="GET">
       {{ csrf() }}
       <button type="submit" class="button remove">{{ _('Remove') }} <span>✖</span></button>
