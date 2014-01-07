@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% block page_title %}
   {% if creating %}
-    <h1>{{ _('Add a curated group') }}</h1>
+    {{ _('Add a curated group') }}
   {% elif group.functional_area %}
-    <h1>{{ _('Edit functional area') }}</h1>
+    {{ _('Edit functional area') }}
   {% elif group.curator %}
-    <h1>{{ _('Edit curated group') }}</h1>
+    {{ _('Edit curated group') }}
   {% else %}
-    <h1>{{ _('Edit group') }}</h1>
+    {{ _('Edit group') }}
   {% endif %}
 {% endblock %}
 {% block body_id %}{% if creating %}group-add{% else %}group-edit{% endif %}{% endblock %}
