@@ -137,9 +137,9 @@ def show(request, url, alias_model, template):
         # Get the most globally popular skills that appear in the group
         # Sort them with most members first
         skills = (Skill.objects
-                  .filter(members__in=profiles)
-                  .annotate(no_users=Count('members'))
-                  .order_by('-no_users'))
+                  .filter(members__in=group.members.all())
+                  .annotate(skill_count=Count('name'))
+                  .order_by('-skill_count',  'name'))
         data.update(skills=skills)
 
     page = request.GET.get('page', 1)
