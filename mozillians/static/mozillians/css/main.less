@@ -106,6 +106,12 @@
   .box-shadow(inset 0 1px 1px rgba(0,0,0,.05));
 }
 
+.ellipsis{
+    white-space: nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+}
+
 /* Generic
 ==================== */
 
@@ -202,12 +208,17 @@ body {
                 border: 1px solid #CD0000;
                 color: #CD0000;
             }
-            label, .error-message {
+            label {
                 color: #CD0000;
             }
         }
     }
-    label.required:after {
+
+    .error-message {
+        color: #CD0000;
+    }
+
+    .required:after {
         content: " *";
         color: @linkRed;
     }
@@ -927,21 +938,15 @@ body#home {
                 position: relative;
                 a.profile-photo {
                     .rounded-image;
+                    display:block;
+                    position:relative;
+                    left:auto;
+
                     @media (max-width: @breakDesktop) {
-                        left: 40%;
-                    }
-                    @media (max-width: @breakTablet) {
-                         left: 35%;
-                    }
-                    @media (max-width: @breakMobileLandscape) {
-                         left: 32%;
-                    }
-                    @media (max-width: @breakMobile) {
-                         left: 62px;
+                        margin:0 auto;
                     }
                 }
                 .profile-details {
-                    margin-top: 170px;
                     word-wrap: break-word;
                     h2 { margin: 0 0 8px 0; }
                     h4 { margin: 20px 0 0;  }
@@ -1101,21 +1106,14 @@ body#profile {
             position: relative;
             .profile-photo {
                 .rounded-image;
+                display:block;
+                position:relative;
+                left:auto;
                 @media (max-width: @breakDesktop) {
-                    left: 40%;
-                }
-                @media (max-width: @breakTablet) {
-                     left: 35%;
-                }
-                @media (max-width: @breakMobileLandscape) {
-                     left: 32%;
-                }
-                @media (max-width: @breakMobile) {
-                     left: 62px;
+                    margin: 0 auto;
                 }
             }
             .stats {
-                margin-top: 170px;
                 h2 { margin: 0; }
                 h4 { margin: 20px 0 0; }
                 @media (max-width: @breakDesktop) {
@@ -1184,6 +1182,39 @@ body#profile {
                     }
                 }
             }
+
+            #profile-contact {
+                width: 220px;
+                float: left;
+                margin-top:1em;
+                ul {
+                    width:100%;
+                    word-wrap: break-word;
+                    list-style: none;
+                    float: left;
+                    li {
+                        position:relative;
+                        margin: 0 15px 0 0;
+                    }
+                }
+                .pre-break-bullet{
+                    position:absolute;
+                }
+                .u-url a{
+                    display:block;
+                    text-indent:1.25em;
+                }
+                .u-email{ &:extend( .ellipsis ); }
+                @media (max-width: @breakDesktop) {
+                    text-align: center;
+                    width: 100%;
+                    float: none;
+                    ul {
+                        float: none;
+                    }
+                }
+            }
+
             @media (max-width: @breakDesktop) {
                 text-align: center;
                 width: 100%;
@@ -1215,7 +1246,6 @@ body#profile {
                 h3 { font-size: 24px; }
             }
             #profile-details {
-                width: 370px;
                 word-wrap: break-word;
                 padding-right: 30px;
                 margin: 0;
@@ -1230,35 +1260,32 @@ body#profile {
                     padding: 0;
                 }
             }
-            #profile-contact {
-                width: 220px;
-                float: left;
-                ul {
-                    width:100%;
-                    word-wrap: break-word;
-                    list-style: none;
-                    float: left;
-                    li {
-                        position:relative;
-                        margin: 0 15px 0 0;
-                    }
-                }
-                .pre-break-bullet{
-                    position:absolute;
-                }
-                .u-url a{
-                    display:block;
-                    text-indent:1.25em;
-                }
-                @media (max-width: @breakDesktop) {
-                    text-align: center;
-                    width: 100%;
-                    float: none;
-                    ul {
-                        float: none;
-                    }
-                }
-            }
+        }
+    }
+    .vouch-box{
+        &:extend(.alert);
+        padding:0px;
+        text-align:left;
+        .margins{
+            margin:10px;
+        }
+        textarea{
+            margin: 0px;
+            height: 115px;
+            width:100%;
+            padding:0;
+            font-size: 11pt;
+        }
+        .character-countdown{
+            margin-right: 5px;
+            line-height: 24px;
+        }
+        .button{
+            margin:0 auto;
+        }
+        #vouch-submit{
+            text-align: right;
+            padding-bottom: 10px;
         }
     }
 }
@@ -1316,7 +1343,7 @@ form {
         .acknowledge {
             float:left;
         }
-        &#photo {
+        &> div#photo {
             position: relative;
             height: 150px;
             @media (max-width: @breakMobileLandscape) {
@@ -1388,8 +1415,8 @@ form {
             margin-top: 50px;
             border: none;
         }
-        #id_photo_delete {
-            margin: 10px 0 0 130px;
+        div#id_photo_delete {
+            margin: 10px 0 0 100px;
             @media (max-width: @breakMobileLandscape) {
                 margin: 10px 0 0 0;
             }
@@ -1397,6 +1424,11 @@ form {
             label {
                 float: none;
             }
+        }
+        &> div#mozillian-contributions {
+            .privacy-controls {
+                margin-top: 50px;
+          }
         }
         &#accounts {
             .externalaccount-fieldrow {
@@ -1509,6 +1541,151 @@ body#edit-profile {
     section {
         margin-bottom: 25px;
     }
+
+    /* Make django-selectable's fields look like tag-it's fields */
+    ul.selectable-deck {
+      display: inline;
+
+      li.selectable-deck-item {
+        background: url("/static/mozillians/img/jquery-ui-blitzer/ui-bg_highlight-hard_100_eeeeee_1x100.png") repeat-x scroll 50% 50% #EEEEEE;
+        border: 1px solid #D8DCDF;
+        color: #004276;
+        font-weight: bold;
+        padding: 0.2em 0.2em 0.2em 0.5em;
+        border-bottom-right-radius: 6px;
+        border-bottom-left-radius: 6px;
+        border-top-right-radius: 6px;
+        border-top-left-radius: 6px;
+        margin: 2px 5px 2px 0;
+        display: block;
+        float: left;
+
+        a.selectable-deck-remove {
+          cursor: pointer;
+          line-height: 17px;
+          margin-top: -8px;
+          right: 0.1em;
+          top: 50%;
+          color: #004276;
+          text-decoration: none;
+          border: none;
+        }
+
+        .ui-button-text,
+        .ui-icon {
+          display: inline
+        }
+      }
+    }
+
+    .geocheckbox {
+      margin-left: 5%;
+      display: inline;
+
+      label {
+        float: none;
+      }
+    }
+    span.geodisplay {
+      display: inline-block;
+      min-width: 100px;
+    }
+
+    // map things
+    #location {
+      position: relative;
+      height: 280px;
+
+      input {
+        box-sizing: border-box;
+      }
+
+      > *{
+        position: absolute;
+      }
+
+      #location_search {
+        right: 10em;
+        bottom: 1.8em;
+        width: 13em;
+        @media (max-width: @breakMobileLandscape) {
+            width: 8em;
+        }
+        height: 2em;
+      }
+
+      #location_search_button {
+        right: 10px;
+        bottom: 2em;
+        height: 2em;
+      }
+
+      #location_search_results {
+        background-color: white;
+        max-height: 14em;
+        right: 0.8em;
+        bottom: 3.5em;
+        border-radius: 4px;
+        width: 23em;
+        padding: 0.5em;
+        @media (max-width: @breakMobileLandscape) {
+            width: 17em;
+        }
+        overflow-y:auto;
+        -webkit-overflow-scrolling: touch;
+        li {
+          cursor: pointer;
+          padding-left: 0.5em;
+          border-radius: 1em;
+        }
+        li:hover {
+          background-color: #eee;
+        }
+      }
+
+      #location_search_loading {
+        bottom: 4.4em;
+        right: 0.8em;
+        height: 4px;
+        width: 24em;
+        @media (max-width: @breakMobileLandscape) {
+            width: 18em;
+        }
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        margin-bottom: 15px;
+      }
+
+      #location_gps_button{
+        width: 26px;
+        height: 26px;
+        top: 71px;
+        left: 10px;
+        line-height: 29px;
+        font-size: 18px;
+        text-align: center;
+        border: solid 1px #9a9a9a;
+        border-radius: 3px;
+        background-color: white;
+        cursor:pointer;
+      }
+      #location_gps_button:hover{
+        background-color:#fafafa;
+      }
+
+      #location_gps_loading{
+        width:28px;
+        height:4px;
+        top:100px;
+        left:10px;
+      }
+    }
+
+
+
 }
 
 /* Generic Groups, Functional Areas and Search Results

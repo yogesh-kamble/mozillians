@@ -14,12 +14,14 @@ databases:
             - djcelery_taskstate
             - djcelery_workerstate
             - schema_migration
-            - south_migrationhistory
             - tastypie_apiaccess
             - tastypie_apikey
             - thumbnail_kvstore
 
         tables:
             auth_user:
-                random_email_noadmin:
-                    - email
+              random_email_noadmin_noemployees:
+                - email
+              random_email_noadmin_employees:
+                - email
+

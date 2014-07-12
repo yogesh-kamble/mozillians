@@ -5,7 +5,6 @@ from datetime import datetime
 from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.forms.models import BaseInlineFormSet, inlineformset_factory
 
@@ -189,17 +188,23 @@ class ProfileForm(happyforms.ModelForm):
                 self.instance.lng = self.cleaned_data['lng']
                 self.instance.reverse_geocode()
                 if not self.instance.geo_country:
-                    raise ValidationError(_('Location must be inside a country.'))
+                    error_msg = _('Location must be inside a country.')
+                    self.errors['savecountry'] = self.error_class([error_msg])
+                    del self.cleaned_data['savecountry']
                 # If the user doesn't want their region/city saved, respect it.
                 if not self.cleaned_data.get('saveregion'):
                     if not self.cleaned_data.get('savecity'):
                         self.instance.geo_region = None
                     else:
-                        raise ValidationError(_('Region must also be saved if city is saved.'))
+                        error_msg = _('Region must also be saved if city is saved.')
+                        self.errors['saveregion'] = self.error_class([error_msg])
+
                 if not self.cleaned_data.get('savecity'):
                     self.instance.geo_city = None
         else:
-            raise ValidationError(_('Location data cannot be empty.'))
+            self.errors['location'] = self.error_class([_('Search for your country on the map.')])
+            self.errors['savecountry'] = self.error_class([_('Country cannot be empty.')])
+            del self.cleaned_data['savecountry']
 
         return self.cleaned_data
 
@@ -251,12 +256,17 @@ class RegisterForm(ProfileForm):
 
 
 class VouchForm(happyforms.Form):
-    """Vouching is captured via a user's id."""
-    vouchee = forms.IntegerField(widget=forms.HiddenInput)
+    """Vouching is captured via a user's id and a description of the reason for vouching."""
+    description = forms.CharField(
+        label=_lazy(u'Provide a reason for vouching with relevant links'),
+        widget=forms.Textarea(attrs={'rows': 10, 'cols': 20, 'maxlength': 500}),
+        max_length=500,
+        error_messages={'required': _(u'You must enter a reason for vouching for this person.')}
+    )
 
 
 class InviteForm(happyforms.ModelForm):
-    message = forms.CharField(label=_lazy('Message'), required=False, widget=forms.Textarea())
+    message = forms.CharField(label=_lazy(u'Message'), required=False, widget=forms.Textarea())
 
     def clean_recipient(self):
         recipient = self.cleaned_data['recipient']
@@ -268,4 +278,4 @@ class InviteForm(happyforms.ModelForm):
 
     class Meta:
         model = Invite
-        fields = ['recipient']
+        fields = ['recipient', 'reason']

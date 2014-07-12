@@ -11,6 +11,8 @@ from django.db.models import signals as dbsignals, ManyToManyField
 from django.dispatch import receiver
 from django.utils.encoding import iri_to_uri
 from django.utils.http import urlquote
+from django.template.loader import get_template
+
 
 import basket
 from elasticutils.contrib.django import S, get_es
@@ -18,10 +20,10 @@ from elasticutils.contrib.django.models import SearchMixin
 from funfactory.urlresolvers import reverse
 from product_details import product_details
 from pytz import common_timezones
-from requests import HTTPError
 from sorl.thumbnail import ImageField, get_thumbnail
 from south.modelsinspector import add_introspection_rules
 from tower import ugettext as _, ugettext_lazy as _lazy
+from funfactory import utils
 
 from mozillians.common.helpers import gravatar
 from mozillians.common.helpers import offset_of_timezone
@@ -29,7 +31,8 @@ from mozillians.groups.models import (Group, GroupAlias, GroupMembership,
                                       Skill, SkillAlias)
 from mozillians.phonebook.helpers import langcode_to_name
 from mozillians.phonebook.validators import (validate_email, validate_twitter,
-                                             validate_website, validate_username_not_url)
+                                             validate_website, validate_username_not_url,
+                                             validate_phone_number)
 from mozillians.users import get_languages_for_locale
 from mozillians.users.managers import (EMPLOYEES,
                                        MOZILLIANS, PRIVACY_CHOICES, PRIVILEGED,
@@ -154,12 +157,13 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
     user = models.OneToOneField(User)
     full_name = models.CharField(max_length=255, default='', blank=False,
                                  verbose_name=_lazy(u'Full Name'))
-    is_vouched = models.BooleanField(default=False)
+    is_vouched = models.BooleanField(
+        default=False,
+        help_text='You can edit vouched status by editing invidual vouches')
+    can_vouch = models.BooleanField(
+        default=False,
+        help_text='You can edit can_vouch status by editing invidual vouches')
     last_updated = models.DateTimeField(auto_now=True, default=datetime.now)
-    vouched_by = models.ForeignKey('UserProfile', null=True, default=None,
-                                   on_delete=models.SET_NULL, blank=True,
-                                   related_name='vouchees')
-    date_vouched = models.DateTimeField(null=True, blank=True, default=None)
     groups = models.ManyToManyField(Group, blank=True, related_name='members',
                                     through=GroupMembership)
     skills = models.ManyToManyField(Skill, blank=True, related_name='members')
@@ -235,45 +239,21 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
         Otherwise it returns a default privacy respecting value for
         the attribute, as defined in the privacy_fields dictionary.
 
-        Special case is the vouched_by attribute:
-
-        Since vouched_by refers to another UserProfile object with
-        different privacy settings per attribute, we need to load that
-        object and check if any of its privacy enabled attributes are
-        available in the current privacy level.
-
-        If yes, we return the real UserProfile object, making sure
-        that we set the privacy_level of the returned instance to the
-        same privacy level as this instance.
-
-        If the object is not available in the current privacy level,
-        we return None.
-
+        special_functions provides methods that privacy safe their
+        respective properties, where the privacy modifications are
+        more complex.
         """
         _getattr = (lambda x: super(UserProfile, self).__getattribute__(x))
         privacy_fields = UserProfile.privacy_fields()
         privacy_level = _getattr('_privacy_level')
+        special_functions = {'vouches_made': '_vouches_made',
+                             'vouches_received': '_vouches_received'}
+
+        if attrname in special_functions and privacy_level:
+            return _getattr(special_functions[attrname])
 
         if not privacy_level:
             return _getattr(attrname)
-
-        if attrname == 'vouched_by':
-            voucher = _getattr('vouched_by')
-            if voucher:
-                voucher.set_instance_privacy_level(privacy_level)
-                for field in privacy_fields:
-                    if getattr(voucher, 'privacy_%s' % field) >= privacy_level:
-                        return voucher
-            return None
-
-        if attrname == 'vouchees':
-            available_vouchees = []
-            for vouchee in _getattr('vouchees').all():
-                vouchee.set_instance_privacy_level(privacy_level)
-                for field in privacy_fields:
-                    if getattr(vouchee, 'privacy_%s' % field, 0) >= privacy_level:
-                        available_vouchees.append(vouchee.id)
-            return UserProfile.objects.filter(pk__in=available_vouchees)
 
         if attrname not in privacy_fields:
             return _getattr(attrname)
@@ -283,6 +263,28 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
             return privacy_fields.get(attrname)
 
         return _getattr(attrname)
+
+    def _vouches(self, type):
+        _getattr = (lambda x: super(UserProfile, self).__getattribute__(x))
+        privacy_level = _getattr('_privacy_level')
+
+        vouch_ids = []
+        for vouch in _getattr(type).all():
+            vouch.vouchee.set_instance_privacy_level(privacy_level)
+            for field in UserProfile.privacy_fields():
+                if getattr(vouch.vouchee, 'privacy_%s' % field, 0) >= privacy_level:
+                    vouch_ids.append(vouch.id)
+        vouches_made = _getattr(type).filter(pk__in=vouch_ids)
+
+        return vouches_made
+
+    @property
+    def _vouches_made(self):
+        return self._vouches('vouches_made')
+
+    @property
+    def _vouches_received(self):
+        return self._vouches('vouches_received')
 
     @classmethod
     def extract_document(cls, obj_id, obj=None):
@@ -462,6 +464,33 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
             return self.language_set.none()
         return self.language_set.all()
 
+    @property
+    def vouched_by(self):
+        """Return the first userprofile who vouched for this userprofile."""
+        privacy_level = self._privacy_level
+        voucher = (UserProfile.objects.filter(vouches_made__vouchee=self)
+                                      .order_by('vouches_made__date'))
+
+        if voucher:
+            voucher = voucher[0]
+            if privacy_level:
+                voucher.set_instance_privacy_level(privacy_level)
+                for field in UserProfile.privacy_fields():
+                    if getattr(voucher, 'privacy_%s' % field) >= privacy_level:
+                        return voucher
+                return None
+            return voucher
+
+        return None
+
+    @property
+    def date_vouched(self):
+        """ Return the date of the first vouch, if available."""
+        vouches = self.vouches_received.all().order_by('date')[:1]
+        if vouches:
+            return vouches[0].date
+        return None
+
     def __unicode__(self):
         """Return this user's name when their profile is called."""
         return self.display_name
@@ -534,32 +563,76 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
             return gravatar(self.user.email, size=geometry)
         return self.get_photo_thumbnail(geometry, **kwargs).url
 
-    def vouch(self, vouched_by, commit=True):
-        if self.is_vouched:
+    def is_vouchable(self, voucher):
+        """Check whether self can receive a vouch from voucher."""
+        # If there's a voucher, they must be able to vouch.
+        if voucher and not voucher.can_vouch:
+            return False
+
+        # Maximum VOUCH_COUNT_LIMIT vouches per account, no matter what.
+        if self.vouches_received.all().count() >= settings.VOUCH_COUNT_LIMIT:
+            return False
+
+        # If you've already vouched this account, you cannot do it again, unless
+        # this account has a legacy vouch from you.
+        vouch_query = self.vouches_received.filter(voucher=voucher)
+        if voucher and vouch_query.exists():
+            if vouch_query.filter(description='').exists():
+                return True
+            return False
+
+        return True
+
+    def vouch(self, vouched_by, description=''):
+        if not self.is_vouchable(vouched_by):
             return
 
+        now = datetime.now()
+        # Update a legacy vouch, if exists, by re-vouching
+        # https://bugzilla.mozilla.org/show_bug.cgi?id=1033306
+        query = self.vouches_received.filter(voucher=vouched_by)
+        if query.filter(description='').exists():
+            # If there isn't a date, provide one
+            if not query[0].date:
+                query.update(description=description, date=now)
+            else:
+                query.update(description=description)
+        else:
+            self.vouches_received.create(
+                voucher=vouched_by, date=now, description=description
+            )
         self.is_vouched = True
-        self.vouched_by = vouched_by
-        self.date_vouched = datetime.now()
-
-        if commit:
-            self.save()
+        self.save()
 
         self._email_now_vouched()
 
     def auto_vouch(self):
         """Auto vouch mozilla.com users."""
         email = self.user.email
-        if any(email.endswith('@' + x) for x in settings.AUTO_VOUCH_DOMAINS):
-            self.vouch(None, commit=False)
+
+        if not self.is_vouched:
+            if any(email.endswith('@' + x) for x in settings.AUTO_VOUCH_DOMAINS):
+                dino = UserProfile.objects.get(user__email='no-reply@mozillians.org')
+                self.vouch(dino, 'An automatic vouch for being a Mozilla employee.')
 
     def _email_now_vouched(self):
         """Email this user, letting them know they are now vouched."""
-        subject = _(u'You are now vouched on Mozillians!')
-        message = _(u'You\'ve now been vouched on Mozillians.org. '
-                    u'You\'ll now be able to search, vouch '
-                    u'and invite other Mozillians onto the site.')
-        send_mail(subject, message, settings.FROM_NOREPLY,
+        name = None
+        profile_link = None
+        if self.vouched_by:
+            name = self.vouched_by.full_name
+            profile_link = utils.absolutify(self.vouched_by.get_absolute_url())
+
+        template = get_template('phonebook/vouched_confirmation_email.txt')
+        message = template.render({
+            'voucher_name': name,
+            'voucher_profile_url': profile_link,
+            'functional_areas_url': utils.absolutify(reverse('groups:index_functional_areas')),
+            'groups_url': utils.absolutify(reverse('groups:index_groups')),
+        })
+        subject = _(u'You are now vouched on Mozillians.org')
+        filtered_message = message.replace('&#34;', '"').replace('&#39;', "'")
+        send_mail(subject, filtered_message, settings.FROM_NOREPLY,
                   [self.user.email])
 
     def lookup_basket_token(self):
@@ -608,11 +681,10 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
 
     def save(self, *args, **kwargs):
         self._privacy_level = None
-        self.auto_vouch()
-        if not self.is_vouched:
-            self.vouched_by = None
-            self.date_vouched = None
         super(UserProfile, self).save(*args, **kwargs)
+        # Auto_vouch follows the first save, because you can't
+        # create foreign keys without a database id.
+        self.auto_vouch()
 
     @classmethod
     def get_index(cls, public_index=False):
@@ -659,12 +731,19 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
         if self.lat is None or self.lng is None:
             return
 
-        from mozillians.geo.lookup import reverse_geocode
-
+        from mozillians.geo.models import Country
+        from mozillians.geo.lookup import reverse_geocode, GeoLookupException
         try:
             result = reverse_geocode(self.lat, self.lng)
-        except HTTPError:
-            logger.exception('Error calling mapbox')
+        except GeoLookupException:
+            if self.geo_country:
+                # If self.geo_country is already set, just give up.
+                pass
+            else:
+                # No country set, we need to at least set the placeholder one.
+                self.geo_country = Country.objects.get(mapbox_id='geo_error')
+                self.geo_region = None
+                self.geo_city = None
         else:
             if result:
                 country, region, city = result
@@ -722,6 +801,44 @@ def delete_user_obj_sig(sender, instance, **kwargs):
         instance.user.delete()
 
 
+class Vouch(models.Model):
+    vouchee = models.ForeignKey(UserProfile, related_name='vouches_received')
+    voucher = models.ForeignKey(UserProfile, related_name='vouches_made',
+                                null=True, default=None, blank=True,
+                                on_delete=models.SET_NULL)
+    description = models.TextField(max_length=500, verbose_name=_lazy(u'Reason for Vouching'),
+                                   default='')
+    autovouch = models.BooleanField(default=False)
+
+    # The back-end can set date null, for migration purposes, but forms cannot.
+    date = models.DateTimeField(null=True, default=None)
+
+    class Meta:
+        verbose_name_plural = 'vouches'
+        unique_together = ('vouchee', 'voucher')
+        ordering = ['-date']
+
+    def __unicode__(self):
+        return u'{0} vouched by {1}'.format(self.vouchee, self.voucher)
+
+
+@receiver(dbsignals.post_delete, sender=Vouch, dispatch_uid='update_vouch_flags_delete_sig')
+@receiver(dbsignals.post_save, sender=Vouch, dispatch_uid='update_vouch_flags_save_sig')
+def update_vouch_flags(sender, instance, **kwargs):
+    if kwargs.get('raw'):
+        return
+    try:
+        profile = instance.vouchee
+    except UserProfile.DoesNotExist:
+        # In this case we delete not only the vouches but the
+        # UserProfile as well. Do nothing.
+        return
+    vouches = Vouch.objects.filter(vouchee=profile).count()
+    profile.is_vouched = vouches > 0
+    profile.can_vouch = vouches >= settings.CAN_VOUCH_THRESHOLD
+    profile.save()
+
+
 class UsernameBlacklist(models.Model):
     value = models.CharField(max_length=30, unique=True)
     is_regex = models.BooleanField(default=False)
@@ -756,6 +873,8 @@ class ExternalAccount(models.Model):
     TYPE_JABBER = 'JABBER'
     TYPE_DISCOURSE = 'DISCOURSE'
     TYPE_LANYRD = 'LANYRD'
+    TYPE_LANDLINE = 'Phone (Landline)'
+    TYPE_MOBILE = 'Phone (Mobile)'
 
     # Account type field documentation:
     # name: The name of the service that this account belongs to. What
@@ -784,8 +903,8 @@ class ExternalAccount(models.Model):
                    'url': 'https://developer.mozilla.org/profiles/{identifier}',
                    'validator': validate_username_not_url},
         TYPE_SUMO: {'name': 'Mozilla Support',
-                    'url': '',
-                    'validator': validate_website},
+                    'url': 'https://support.mozilla.org/user/{identifier}',
+                    'validator': validate_username_not_url},
         TYPE_FACEBOOK: {'name': 'Facebook',
                         'url': 'https://www.facebook.com/{identifier}',
                         'validator': validate_username_not_url},
@@ -823,6 +942,12 @@ class ExternalAccount(models.Model):
         TYPE_LANYRD: {'name': 'Lanyrd',
                       'url': 'http://lanyrd.com/profile/{identifier}/',
                       'validator': validate_username_not_url},
+        TYPE_LANDLINE: {'name': 'Phone (Landline)',
+                        'url': '',
+                        'validator': validate_phone_number},
+        TYPE_MOBILE: {'name': 'Phone (Mobile)',
+                      'url': '',
+                      'validator': validate_phone_number},
 
     }
 

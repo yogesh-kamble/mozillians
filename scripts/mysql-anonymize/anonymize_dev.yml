@@ -14,7 +14,6 @@ databases:
             - djcelery_taskstate
             - djcelery_workerstate
             - schema_migration
-            - south_migrationhistory
             - tastypie_apiaccess
             - tastypie_apikey
             - thumbnail_kvstore
@@ -24,7 +23,9 @@ databases:
                 nullify:
                     - first_name
                     - last_name
-                random_email_noadmin:
+                random_email_noadmin_noemployees:
+                    - email
+                random_email_noadmin_employees:
                     - email
                 random_username:
                     - username
@@ -41,6 +42,8 @@ databases:
                     - basket_token
                 nullify:
                     - tshirt
+                    - geo_region_id
+                    - geo_city_id
                 random_username:
                     - ircname
 

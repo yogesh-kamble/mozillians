@@ -18,17 +18,17 @@ urlpatterns = patterns(
     url(r'^delete/$', 'views.delete', name='profile_delete'),
     url(r'^opensearch.xml$', 'views.search_plugin', name='search_plugin'),
     url(r'^search/$', 'views.search', name='search'),
-    url(r'^vouch/$', 'views.vouch', name='vouch'),
+    url(r'^betasearch/$', 'views.betasearch', name='betasearch'),
     url(r'^invite/$', 'views.invite', name='invite'),
     url(r'^invite/(?P<invite_pk>\d+)/delete/$', 'views.delete_invite', name='delete_invite'),
-    url(r'^country/(?P<country>[A-Za-z0-9 ]+)/$',
+    url(r'^country/(?P<country>[A-Za-z0-9 \.]+)/$',
         'views.list_mozillians_in_location', name='list_country'),
-    url(r'^country/(?P<country>[A-Za-z0-9 ]+)/city/(?P<city>.+)/$',
+    url(r'^country/(?P<country>[A-Za-z0-9 \.]+)/city/(?P<city>.+)/$',
         'views.list_mozillians_in_location', name='list_city'),
-    url((r'^country/(?P<country>[A-Za-z0-9 ]+)/'
+    url((r'^country/(?P<country>[A-Za-z0-9 \.]+)/'
          'region/(?P<region>.+)/city/(?P<city>.+)/$'),
         'views.list_mozillians_in_location', name='list_region_city'),
-    url(r'^country/(?P<country>[A-Za-z0-9 ]+)/region/(?P<region>.+)/$',
+    url(r'^country/(?P<country>[A-Za-z0-9 \.]+)/region/(?P<region>.+)/$',
         'views.list_mozillians_in_location', name='list_region'),
 
 
@@ -36,4 +36,7 @@ urlpatterns = patterns(
     url(r'^about/$',
         allow_public(TemplateView.as_view(template_name='phonebook/about.html')),
         name='about'),
+    url(r'^about/dinomcvouch$',
+        allow_public(TemplateView.as_view(template_name='phonebook/about-dinomcvouch.html')),
+        name='about-dinomcvouch'),
 )

@@ -1,19 +1,17 @@
 from django.conf import settings
-from django.contrib import auth
+from django.contrib.auth.views import logout as auth_logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.http import Http404, HttpResponseBadRequest
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import cache_page, never_cache
 from django.views.decorators.http import require_POST
 
-from django_browserid.base import get_audience, verify
-from django_browserid.views import Verify
-from funfactory.helpers import urlparams
 from funfactory.urlresolvers import reverse
 from tower import ugettext as _
+from waffle.decorators import waffle_flag
 
 import mozillians.phonebook.forms as forms
 from mozillians.common.decorators import allow_public, allow_unvouched
@@ -25,39 +23,6 @@ from mozillians.phonebook.models import Invite
 from mozillians.phonebook.utils import redeem_invite
 from mozillians.users.managers import EMPLOYEES, MOZILLIANS, PUBLIC, PRIVILEGED
 from mozillians.users.models import UserProfile
-
-
-class BrowserIDVerify(Verify):
-    def form_valid(self, form):
-        """Custom form validation to support email changing.
-
-        If user is already authenticated and reaches this point, it's
-        an email changing procedure. Validate that email is good and
-        save it in the database.
-
-        Otherwise continue with the default django-browserid verification.
-        """
-        if not self.request.user.is_authenticated():
-            return super(BrowserIDVerify, self).form_valid(form)
-
-        failure_url = urlparams(reverse('phonebook:profile_edit'), bid_login_failed=1)
-        self.assertion = form.cleaned_data['assertion']
-        self.audience = get_audience(self.request)
-        result = verify(self.assertion, self.audience)
-        if not result:
-            messages.error(self.request, _('Authentication failed.'))
-            return redirect(failure_url)
-
-        email = result['email']
-
-        if User.objects.filter(email=email).exists():
-            messages.error(self.request, _('Email already exists in the database.'))
-            return redirect('phonebook:logout')
-
-        user = self.request.user
-        user.email = email
-        user.save()
-        return redirect('phonebook:profile_view', user.username)
 
 
 @allow_unvouched
@@ -81,6 +46,7 @@ def view_profile(request, username):
     privacy_mappings = {'anonymous': PUBLIC, 'mozillian': MOZILLIANS, 'employee': EMPLOYEES,
                         'privileged': PRIVILEGED, 'myself': None}
     privacy_level = None
+    profile_is_vouchable = False
 
     if (request.user.is_authenticated() and request.user.username == username):
         # own profile
@@ -115,12 +81,21 @@ def view_profile(request, username):
             profile.set_instance_privacy_level(
                 request.user.userprofile.privacy_level)
 
-        if (not profile.is_vouched
-            and request.user.is_authenticated()
-            and request.user.userprofile.is_vouched):
-                data['vouch_form'] = (
-                    forms.VouchForm(initial={'vouchee': profile.pk}))
+        if (request.user.is_authenticated() and profile.is_vouchable(request.user.userprofile)):
+            profile_is_vouchable = True
 
+            vouch_form = forms.VouchForm(request.POST or None)
+            data['vouch_form'] = vouch_form
+            if vouch_form.is_valid():
+                # We need to re-fetch profile from database.
+                profile = UserProfile.objects.get(user__username=username)
+                profile.vouch(request.user.userprofile, vouch_form.cleaned_data['description'])
+                # Notify the current user that they vouched successfully.
+                msg = _(u'Thanks for vouching for a fellow Mozillian! This user is now vouched!')
+                messages.info(request, msg)
+                return redirect('phonebook:profile_view', profile.user.username)
+
+    data['profile_is_vouchable'] = profile_is_vouchable
     data['shown_user'] = profile.user
     data['profile'] = profile
     data['groups'] = profile.get_annotated_groups()
@@ -200,7 +175,6 @@ def edit_profile(request):
                 accounts_formset=accounts_formset,
                 email_form=email_form,
                 user_groups=user_groups,
-                my_vouches=UserProfile.objects.filter(vouched_by=profile),
                 profile=request.user.userprofile,
                 apps=user.apiapp_set.filter(is_active=True),
                 language_formset=language_formset,
@@ -227,10 +201,7 @@ def confirm_delete(request):
 def delete(request):
     request.user.delete()
     messages.info(request, _('Your account has been deleted. Thanks for being a Mozillian!'))
-    # We don't redirect to logout view, because delete already logs
-    # out user. Instead we render the logout template to BrowserID
-    # logout.
-    return render(request, 'phonebook/logout.html')
+    return logout(request)
 
 
 @allow_public
@@ -280,6 +251,59 @@ def search(request):
     return render(request, 'phonebook/search.html', d)
 
 
+@waffle_flag('betasearch')
+@allow_public
+def betasearch(request):
+    """This view is for researching new search and data filtering
+    options. It will eventually replace the 'search' view.
+
+    This view is behind the 'betasearch' waffle flag.
+    """
+    limit = None
+    people = []
+    show_pagination = False
+    form = forms.SearchForm(request.GET)
+    groups = None
+    functional_areas = None
+
+    if form.is_valid():
+        query = form.cleaned_data.get('q', u'')
+        limit = form.cleaned_data['limit']
+        include_non_vouched = form.cleaned_data['include_non_vouched']
+        page = request.GET.get('page', 1)
+        functional_areas = Group.get_functional_areas()
+        public = not (request.user.is_authenticated()
+                      and request.user.userprofile.is_vouched)
+
+        profiles = UserProfile.search(query, public=public,
+                                      include_non_vouched=include_non_vouched)
+        if not public:
+            groups = Group.search(query)
+
+        paginator = Paginator(profiles, limit)
+
+        try:
+            people = paginator.page(page)
+        except PageNotAnInteger:
+            people = paginator.page(1)
+        except EmptyPage:
+            people = paginator.page(paginator.num_pages)
+
+        if profiles.count() == 1 and not groups:
+            return redirect('phonebook:profile_view', people[0].user.username)
+
+        show_pagination = paginator.count > settings.ITEMS_PER_PAGE
+
+    d = dict(people=people,
+             search_form=form,
+             limit=limit,
+             show_pagination=show_pagination,
+             groups=groups,
+             functional_areas=functional_areas)
+
+    return render(request, 'phonebook/betasearch.html', d)
+
+
 @allow_public
 @cache_page(60 * 60 * 168)  # 1 week.
 def search_plugin(request):
@@ -318,24 +342,6 @@ def delete_invite(request, invite_pk):
     return redirect('phonebook:invite')
 
 
-@require_POST
-def vouch(request):
-    """Vouch a user."""
-    form = forms.VouchForm(request.POST)
-
-    if form.is_valid():
-        p = UserProfile.objects.get(pk=form.cleaned_data.get('vouchee'))
-        p.vouch(request.user.userprofile)
-
-        # Notify the current user that they vouched successfully.
-        msg = _(u'Thanks for vouching for a fellow Mozillian! '
-                u'This user is now vouched!')
-        messages.info(request, msg)
-        return redirect('phonebook:profile_view', p.user.username)
-
-    return HttpResponseBadRequest()
-
-
 def list_mozillians_in_location(request, country, region=None, city=None):
     queryset = UserProfile.objects.vouched().filter(geo_country__name__iexact=country)
     show_pagination = False
@@ -369,14 +375,9 @@ def list_mozillians_in_location(request, country, region=None, city=None):
 
 @allow_unvouched
 def logout(request):
-    """Logout view that wraps Django's logout but always redirects.
-
-    Django's contrib.auth.views logout method renders a template if
-    the `next_page` argument is `None`, which we don't want. This view
-    always returns an HTTP redirect instead.
-
-    """
-    return auth.views.logout(request, template_name='phonebook/logout.html')
+    """View that logs out the user and redirects to home page."""
+    auth_logout(request)
+    return redirect('phonebook:home')
 
 
 @allow_public

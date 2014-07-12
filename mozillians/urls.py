@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.shortcuts import render
 
 import autocomplete_light
-
+import tower
 from funfactory.monkeypatches import patch
 
 
@@ -32,6 +32,11 @@ except KeyError:
     pass
 jingo.env.add_extension(CompressorExtension)
 
+# Activate a locale so that jinja2 doesn't choke when running a shell
+# or individual tests that need translation and don't involve a web
+# request, like when testing emails.
+tower.activate('en-US')
+
 
 def error_page(request, template, status=None):
     """Render error templates, found in the root /templates directory.
@@ -50,7 +55,7 @@ handler_csrf = lambda r, cb=None: error_page(r, 'csrf_error', status=400)
 
 urlpatterns = patterns(
     '',
-    url(r'^browserid/', include('django_browserid.urls')),
+    url(r'', include('django_browserid.urls')),
     url(r'^api/', include('mozillians.api.urls')),
     url(r'', include('mozillians.groups.urls', 'groups')),
     url(r'', include('mozillians.phonebook.urls', 'phonebook')),
