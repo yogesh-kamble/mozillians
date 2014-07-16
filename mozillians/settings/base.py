@@ -186,6 +186,8 @@ CACHES = {
 MAX_PHOTO_UPLOAD_SIZE = 8 * (1024 ** 2)
 
 AUTO_VOUCH_DOMAINS = ('mozilla.com', 'mozilla.org', 'mozillafoundation.org')
+AUTO_VOUCH_REASON = 'An automatic vouch for being a Mozilla employee.'
+
 SOUTH_TESTS_MIGRATE = False
 
 # Django-CSP
@@ -329,4 +331,4 @@ BROWSERID_AUDIENCES = lazy(_browserid_audiences, list)()
 VOUCH_COUNT_LIMIT = 6
 
 # All accounts need 1 vouches to be able to vouch.
-CAN_VOUCH_THRESHOLD = 1
+CAN_VOUCH_THRESHOLD = 3

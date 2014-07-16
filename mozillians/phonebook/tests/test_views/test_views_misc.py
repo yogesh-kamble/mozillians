@@ -1,14 +1,15 @@
 import os.path
 from datetime import datetime
 
-
 from django.contrib.auth.models import User
 from django.contrib.auth.views import logout as logout_view
 from django.core.urlresolvers import reverse
 from django.test.client import Client
+from django.test.utils import override_settings
 
 from mock import patch
 from nose.tools import eq_, ok_
+from waffle import Flag
 
 from mozillians.common.tests import TestCase, requires_login, requires_vouch
 from mozillians.phonebook.models import Invite
@@ -63,20 +64,25 @@ class InviteTests(TestCase):
             response = client.get(reverse('phonebook:invite'), follow=True)
         self.assertTemplateUsed(response, 'phonebook/invite.html')
 
+    @override_settings(CAN_VOUCH_THRESHOLD=1)
     @patch('mozillians.phonebook.views.messages.success')
     def test_invite_post_vouched(self, success_mock):
         user = UserFactory.create()
         url = reverse('phonebook:invite', prefix='/en-US/')
-        data = {'message': 'Join us foo!', 'recipient': 'foo@example.com',
-                'reason': 'A test reason'}
+        data = {
+            'message': 'Join us foo!',
+            'recipient': 'foo@example.com',
+            'description': 'A test reason'
+        }
         with self.login(user) as client:
             response = client.post(url, data, follow=True)
-        self.assertTemplateUsed(response, 'phonebook/home.html')
+        self.assertTemplateUsed(response, 'phonebook/invite.html')
         ok_(Invite.objects
             .filter(recipient='foo@example.com', inviter=user.userprofile)
             .exists())
         ok_(success_mock.called)
 
+    @override_settings(CAN_VOUCH_THRESHOLD=1)
     def test_invite_already_vouched(self):
         vouched_user = UserFactory.create()
         user = UserFactory.create()
@@ -128,7 +134,7 @@ class InviteTests(TestCase):
         eq_(response.status_code, 404)
 
 
-class VouchTests(TestCase):
+class VouchFormTests(TestCase):
 
     def test_vouch_not_vouched(self):
         user = UserFactory.create(vouched=False, userprofile={'privacy_full_name': PUBLIC})
@@ -152,8 +158,9 @@ class VouchTests(TestCase):
         unvouched_user = User.objects.get(id=user.id)
         ok_(not unvouched_user.userprofile.is_vouched)
 
+    @override_settings(CAN_VOUCH_THRESHOLD=1)
     @patch('mozillians.phonebook.views.messages.info')
-    def test_vouch_vouched(self, info_mock):
+    def test_vouch_unvouched(self, info_mock):
         user = UserFactory.create(vouched=False)
         user.userprofile.vouch(None)
         unvouched_user = UserFactory.create(vouched=False)
@@ -354,3 +361,46 @@ class AboutDinoMcVouchTests(TestCase):
         response = client.get(url, follow=True)
         eq_(response.status_code, 200)
         self.assertTemplateUsed('phonebook/about-dinomcvouch.html')
+
+
+class VouchTests(TestCase):
+    def test_vouch_disabled(self):
+        # Test that 'vouched' view is not active by default.
+        user = UserFactory.create(vouched=False)
+        url = reverse('phonebook:profile_vouch', args=[user.username])
+        with self.login(user) as client:
+            response = client.get(url, follow=True)
+        eq_(response.status_code, 404)
+        user = User.objects.get(id=user.id)
+        ok_(not user.userprofile.is_vouched)
+
+    def test_unvouch_disabled(self):
+        # Test that 'unvouched' view is not active by default.
+        user = UserFactory.create(vouched=False)
+        url = reverse('phonebook:profile_unvouch', args=[user.username])
+        with self.login(user) as client:
+            response = client.get(url, follow=True)
+        eq_(response.status_code, 404)
+        user = User.objects.get(id=user.id)
+        ok_(not user.userprofile.is_vouched)
+
+    def test_vouch(self):
+        Flag.objects.create(name='testing-autovouch-views', everyone=True)
+        user = UserFactory.create(vouched=False)
+        ok_(not user.userprofile.is_vouched)
+        url = reverse('phonebook:profile_vouch', args=[user.username])
+        with self.login(user) as client:
+            client.get(url, follow=True)
+        user = User.objects.get(id=user.id)
+        eq_(user.userprofile.vouches_received.all().count(), 1)
+        eq_(user.userprofile.vouches_received.all()[0].autovouch, True)
+
+    def test_unvouch(self):
+        Flag.objects.create(name='testing-autovouch-views', everyone=True)
+        user = UserFactory.create()
+        ok_(user.userprofile.is_vouched)
+        url = reverse('phonebook:profile_unvouch', args=[user.username])
+        with self.login(user) as client:
+            client.get(url, follow=True)
+        user = User.objects.get(id=user.id)
+        ok_(not user.userprofile.vouches_received.all().exists())

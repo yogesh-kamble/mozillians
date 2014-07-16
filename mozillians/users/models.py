@@ -583,7 +583,7 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
 
         return True
 
-    def vouch(self, vouched_by, description=''):
+    def vouch(self, vouched_by, description='', autovouch=False):
         if not self.is_vouchable(vouched_by):
             return
 
@@ -599,36 +599,41 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
                 query.update(description=description)
         else:
             self.vouches_received.create(
-                voucher=vouched_by, date=now, description=description
+                voucher=vouched_by,
+                date=now,
+                description=description,
+                autovouch=autovouch
             )
-        self.is_vouched = True
         self.save()
 
-        self._email_now_vouched()
+        self._email_now_vouched(vouched_by)
 
     def auto_vouch(self):
         """Auto vouch mozilla.com users."""
         email = self.user.email
 
-        if not self.is_vouched:
-            if any(email.endswith('@' + x) for x in settings.AUTO_VOUCH_DOMAINS):
-                dino = UserProfile.objects.get(user__email='no-reply@mozillians.org')
-                self.vouch(dino, 'An automatic vouch for being a Mozilla employee.')
+        if any(email.endswith('@' + x) for x in settings.AUTO_VOUCH_DOMAINS):
+            if not self.vouches_received.filter(
+                    description=settings.AUTO_VOUCH_REASON, autovouch=True).exists():
+                self.vouch(None, settings.AUTO_VOUCH_REASON, autovouch=True)
 
-    def _email_now_vouched(self):
+    def _email_now_vouched(self, vouched_by):
         """Email this user, letting them know they are now vouched."""
         name = None
         profile_link = None
-        if self.vouched_by:
-            name = self.vouched_by.full_name
-            profile_link = utils.absolutify(self.vouched_by.get_absolute_url())
+        if vouched_by:
+            name = vouched_by.full_name
+            profile_link = utils.absolutify(vouched_by.get_absolute_url())
 
-        template = get_template('phonebook/vouched_confirmation_email.txt')
+        number_of_vouches = self.vouches_received.all().count()
+        template = get_template('phonebook/emails/vouch_confirmation_email.txt')
         message = template.render({
             'voucher_name': name,
             'voucher_profile_url': profile_link,
             'functional_areas_url': utils.absolutify(reverse('groups:index_functional_areas')),
             'groups_url': utils.absolutify(reverse('groups:index_groups')),
+            'first_vouch': number_of_vouches == 1,
+            'can_vouch_threshold': number_of_vouches == settings.CAN_VOUCH_THRESHOLD,
         })
         subject = _(u'You are now vouched on Mozillians.org')
         filtered_message = message.replace('&#34;', '"').replace('&#39;', "'")

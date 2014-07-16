@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.cache import cache_page, never_cache
 from django.views.decorators.http import require_POST
 
@@ -36,6 +37,40 @@ def login(request):
 @allow_public
 def home(request):
     return render(request, 'phonebook/home.html')
+
+
+@waffle_flag('testing-autovouch-views')
+@allow_unvouched
+@never_cache
+def vouch(request, username):
+    """Automatically vouch username.
+
+    This must be behind a waffle flag and activated only for testing
+    purposes.
+
+    """
+    profile = get_object_or_404(UserProfile, user__username=username)
+    now = timezone.now()
+    description = 'Automatically vouched for testing purposes on {0}'.format(now)
+    profile.vouch(None, description=description, autovouch=True)
+    messages.success(request, _('Successfully vouched user.'))
+    return redirect('phonebook:profile_view', profile.user.username)
+
+
+@waffle_flag('testing-autovouch-views')
+@allow_unvouched
+@never_cache
+def unvouch(request, username):
+    """Automatically remove all vouches from username.
+
+    This must be behind a waffle flag and activated only for testing
+    purposes.
+
+    """
+    profile = get_object_or_404(UserProfile, user__username=username)
+    profile.vouches_received.all().delete()
+    messages.success(request, _('Successfully unvouched user.'))
+    return redirect('phonebook:profile_view', profile.user.username)
 
 
 @allow_public
@@ -99,7 +134,6 @@ def view_profile(request, username):
     data['shown_user'] = profile.user
     data['profile'] = profile
     data['groups'] = profile.get_annotated_groups()
-    data['locale'] = request.locale
 
     # Only show pending groups if user is looking at their own profile,
     # or current user is a superuser
@@ -156,11 +190,11 @@ def edit_profile(request):
         accounts_formset.save()
         language_formset.save()
 
-        # Notify the user that their old profile URL won't work.
         if new_profile:
             redeem_invite(profile, request.session.get('invite-code'))
             messages.info(request, _(u'Your account has been created.'))
         elif user.username != old_username:
+            # Notify the user that their old profile URL won't work.
             messages.info(request,
                           _(u'You changed your username; please note your '
                             u'profile URL has also changed.'))
@@ -314,19 +348,30 @@ def search_plugin(request):
 
 def invite(request):
     profile = request.user.userprofile
-    invite_form = forms.InviteForm(request.POST or None,
-                                   instance=Invite(inviter=profile))
-    if invite_form.is_valid():
+    invite_form = None
+    vouch_form = None
+    if profile.can_vouch:
+        invite_form = forms.InviteForm(request.POST or None,
+                                       instance=Invite(inviter=profile))
+        vouch_form = forms.VouchForm(request.POST or None)
+
+    if invite_form and vouch_form and invite_form.is_valid() and vouch_form.is_valid():
+        invite_form.instance.reason = vouch_form.cleaned_data['description']
         invite = invite_form.save()
         invite.send(sender=profile, personal_message=invite_form.cleaned_data['message'])
         msg = _(u"%s has been invited to Mozillians. They'll receive an email "
                 u"with instructions on how to join. You can "
                 u"invite another Mozillian if you like.") % invite.recipient
         messages.success(request, msg)
-        return redirect('phonebook:home')
+        return redirect('phonebook:invite')
 
     return render(request, 'phonebook/invite.html',
-                  {'invite_form': invite_form, 'invites': profile.invites.all()})
+                  {
+                      'invite_form': invite_form,
+                      'vouch_form': vouch_form,
+                      'invites': profile.invites.all(),
+                      'vouch_threshold': settings.CAN_VOUCH_THRESHOLD,
+                  })
 
 
 @require_POST
@@ -388,7 +433,6 @@ def register(request):
     if so. Single-purpose view.
     """
     # TODO already vouched users can be re-vouched?
-
     if 'code' in request.GET:
         request.session['invite-code'] = request.GET['code']
         if request.user.is_authenticated():
