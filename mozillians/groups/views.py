@@ -3,7 +3,7 @@ import json
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import EmptyPage, Paginator, PageNotAnInteger
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import HttpResponse, HttpResponseBadRequest, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import cache_control, never_cache
@@ -136,12 +136,12 @@ def show(request, url, alias_model, template):
 
         # Get the most globally popular skills that appear in the group
         # Sort them with most members first.
+        # Bug 1030673:To get common skills, first group by skill_name and then
+        # order by skill_count and then skill_name.
         skills = (Skill.objects
-                  #.filter(members__in=group.members.all())
-                  #.annotate(skill_count=Count('name'))
-                  #.order_by('-skill_count',  'name'))
-                  .filter(members__in=memberships.values_list('userprofile', flat=True))
-                  .order_by('-member_count'))
+                  .filter(members__in=group.members.all())
+                  .annotate(skill_count=Count('name'))
+                  .order_by('-skill_count', 'name'))
         data.update(skills=skills)
 
     page = request.GET.get('page', 1)
