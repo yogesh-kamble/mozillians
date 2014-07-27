@@ -1,0 +1,7 @@
+Hi {{ user_name }},
+
+You have been removed from the Mozillians group "{{ group_name }}".
+
+If you have a question or if there has been a mistake, you can contact the group curator and see more about the group at https://mozillians.org/group/{{ group_slug }}/.
+
+{{ _('The Mozillians.org team') }}
