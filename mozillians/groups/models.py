@@ -284,7 +284,6 @@ class Group(GroupBase):
             return
         old_status = membership.status
         membership.delete()
-
         # If group is functional area, we want to sent this update to Basket
         if self.functional_area:
             update_basket_task.delay(userprofile.id)
@@ -295,7 +294,7 @@ class Group(GroupBase):
                                           old_status, None)
         elif old_status == GroupMembership.MEMBER and send_email:
             #Member removed
-            member_removed_email.delay(self.pk, userprofile.user.pk)
+            member_removed_email.delay(self.pk, userprofile.user.pk, old_status)
 
     def has_member(self, userprofile):
         """
