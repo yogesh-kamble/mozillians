@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 
 from django import forms
+from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.admin import SimpleListFilter
-from django.contrib.auth.admin import GroupAdmin
+from django.contrib.auth.admin import GroupAdmin, UserAdmin
 from django.contrib.auth.models import Group, User
 from django.core.urlresolvers import reverse
 from django.db.models import Count, Q
@@ -64,6 +65,18 @@ def unsubscribe_from_basket_action():
     unsubscribe_from_basket.short_description = 'Unsubscribe from Basket'
 
     return unsubscribe_from_basket
+
+
+def update_can_vouch_action():
+    """Update can_vouch flag action."""
+
+    def update_can_vouch(modeladmin, request, queryset):
+        for profile in queryset:
+            profile.can_vouch = (
+                profile.vouches_received.count() >= settings.CAN_VOUCH_THRESHOLD)
+            profile.save()
+    update_can_vouch.short_description = 'Update can_vouch flag.'
+    return update_can_vouch
 
 
 class SuperUserFilter(SimpleListFilter):
@@ -172,15 +185,18 @@ class LegacyVouchFilter(SimpleListFilter):
                 ('new', 'New'))
 
     def queryset(self, request, queryset):
-        legacy_vouchees = (Vouch.objects.filter(description='')
-                           .values_list('vouchee', flat=True))
-        nonlegacy_vouchees = (Vouch.objects.exclude(description='')
-                              .values_list('vouchee', flat=True))
+        vouched = queryset.filter(is_vouched=True)
+        newvouches = (Vouch.objects
+                      .exclude(description='')
+                      .values_list('vouchee', flat=True)
+                      .distinct())
+        # Load into memory
+        newvouches = list(newvouches)
+
         if self.value() == 'legacy':
-            return (queryset.filter(id__in=legacy_vouchees)
-                    .exclude(id__in=nonlegacy_vouchees))
+            return vouched.exclude(pk__in=newvouches)
         elif self.value() == 'new':
-            return queryset.filter(id__in=nonlegacy_vouchees)
+            return vouched.filter(pk__in=newvouches)
         return queryset
 
 
@@ -287,7 +303,8 @@ class UserProfileAdmin(AdminImageMixin, ExportMixin, admin.ModelAdmin):
     list_display = ['full_name', 'email', 'username', 'geo_country', 'is_vouched', 'can_vouch',
                     'number_of_vouchees']
     list_display_links = ['full_name', 'email', 'username']
-    actions = [subscribe_to_basket_action(), unsubscribe_from_basket_action()]
+    actions = [subscribe_to_basket_action(), unsubscribe_from_basket_action(),
+               update_can_vouch_action()]
 
     fieldsets = (
         ('Account', {
@@ -396,6 +413,29 @@ class UserProfileAdmin(AdminImageMixin, ExportMixin, admin.ModelAdmin):
         return my_urls + urls
 
 admin.site.register(UserProfile, UserProfileAdmin)
+
+
+class NullProfileFilter(SimpleListFilter):
+    """Admin filter for null profiles."""
+    title = 'has user profile'
+    parameter_name = 'has_user_profile'
+
+    def lookups(self, request, model_admin):
+        return (('False', 'No'),
+                ('True', 'Yes'))
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+        value = self.value() != 'True'
+        return queryset.filter(userprofile__isnull=value)
+
+
+class UserAdmin(UserAdmin):
+    list_filter = [NullProfileFilter]
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
 
 
 class GroupAdmin(ExportMixin, GroupAdmin):

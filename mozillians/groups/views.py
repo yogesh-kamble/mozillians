@@ -112,9 +112,16 @@ def show(request, url, alias_model, template):
         is_pending = group.has_pending_member(profile)
 
         is_curator = is_manager or (group.curator == request.user.userprofile)
+
+        # initialize the form only when the group is moderated and user is curator of the group
+        if is_curator and group.accepting_new_members == 'by_request':
+            membership_filter_form = MembershipFilterForm(request.GET)
+        else:
+            membership_filter_form = None
+
         if is_curator:
             statuses = [GroupMembership.MEMBER, GroupMembership.PENDING]
-            if membership_filter_form.is_valid():
+            if membership_filter_form and membership_filter_form.is_valid():
                 filtr = membership_filter_form.cleaned_data['filtr']
                 if filtr == 'members':
                     statuses = [GroupMembership.MEMBER]
@@ -138,11 +145,10 @@ def show(request, url, alias_model, template):
         # Sort them with most members first.
         # Bug 1030673:To get common skills, first group by skill_name and then
         # order by skill_count and then skill_name.
-        skills = (Skill.objects
-                  .filter(members__in=group.members.all())
-                  .annotate(skill_count=Count('name'))
-                  .order_by('-skill_count', 'name'))
-        data.update(skills=skills)
+        skills = (Skill.object
+                  .filter(members__in=memberships.values_list('userprofile', flat=True))
+                  .order_by('-member_count'))
+        data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
     paginator = Paginator(memberships, settings.ITEMS_PER_PAGE)
@@ -165,7 +171,6 @@ def show(request, url, alias_model, template):
                       show_delete_group_button=show_delete_group_button,
                       show_join_button=group.user_can_join(request.user.userprofile),
                       show_leave_button=group.user_can_leave(request.user.userprofile),
-                      membership_filter_form=membership_filter_form,
                       members=group.member_count,
                       )
 
@@ -180,6 +185,8 @@ def remove_member(request, url, user_pk):
     this_userprofile = request.user.userprofile
     is_curator = (group.curator == this_userprofile)
     is_manager = request.user.userprofile.is_manager
+    group_url = reverse('groups:show_group', args=[group.url])
+    next_url = request.REQUEST.get('next_url', group_url)
 
     # TODO: this duplicates some of the logic in Group.user_can_leave(), but we
     # want to give the user a message that's specific to the reason they can't leave.
@@ -189,14 +196,14 @@ def remove_member(request, url, user_pk):
     if not (is_curator or is_manager):
         if not group.members_can_leave:
             messages.error(request, _('This group does not allow members to remove themselves.'))
-            return redirect('groups:show_group', url=group.url)
+            return redirect(next_url)
         if profile_to_remove != this_userprofile:
             raise Http404()
 
     # Curators cannot be removed, by anyone at all.
     if group.curator == profile_to_remove:
         messages.error(request, _('A curator cannot be removed from a group.'))
-        return redirect('groups:show_group', url=group.url)
+        return redirect(next_url)
 
     if request.method == 'POST':
         group.remove_member(profile_to_remove,
@@ -205,12 +212,13 @@ def remove_member(request, url, user_pk):
             messages.info(request, _('You have been removed from this group.'))
         else:
             messages.info(request, _('The group member has been removed.'))
-        return redirect('groups:show_group', url=group.url)
+        return redirect(next_url)
 
     # Display confirmation page
     context = {
         'group': group,
-        'profile': profile_to_remove
+        'profile': profile_to_remove,
+        'next_url': next_url
     }
     return render(request, 'groups/confirm_remove_member.html', context)
 
@@ -224,6 +232,8 @@ def confirm_member(request, url, user_pk):
     profile = get_object_or_404(UserProfile, pk=user_pk)
     is_curator = (group.curator == request.user.userprofile)
     is_manager = request.user.userprofile.is_manager
+    group_url = reverse('groups:show_group', args=[group.url])
+    next_url = request.REQUEST.get('next_url', group_url)
 
     if not (is_curator or is_manager):
         raise Http404()
@@ -237,7 +247,7 @@ def confirm_member(request, url, user_pk):
         else:
             group.add_member(profile)
             messages.info(request, _('This user has been added as a member of this group.'))
-    return redirect('groups:show_group', url=group.url)
+    return redirect(next_url)
 
 
 def edit(request, url, alias_model, template):

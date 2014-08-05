@@ -417,7 +417,7 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
     @property
     def privacy_level(self):
         """Return user privacy clearance."""
-        if (self.groups.filter(name='privileged').exists() or self.user.is_superuser):
+        if (self.user.groups.filter(name='Managers').exists() or self.user.is_superuser):
             return PRIVILEGED
         if self.groups.filter(name='staff').exists():
             return EMPLOYEES
@@ -593,20 +593,21 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
         query = self.vouches_received.filter(voucher=vouched_by)
         if query.filter(description='').exists():
             # If there isn't a date, provide one
-            if not query[0].date:
-                query.update(description=description, date=now)
-            else:
-                query.update(description=description)
+            vouch = query[0]
+            vouch.description = description
+            if not vouch.date:
+                vouch.date = now
+            vouch.save()
         else:
-            self.vouches_received.create(
+            vouch = self.vouches_received.create(
                 voucher=vouched_by,
                 date=now,
                 description=description,
                 autovouch=autovouch
             )
-        self.save()
 
         self._email_now_vouched(vouched_by)
+        return vouch
 
     def auto_vouch(self):
         """Auto vouch mozilla.com users."""

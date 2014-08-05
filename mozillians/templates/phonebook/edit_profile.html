@@ -55,7 +55,9 @@
     {{ csrf() }}
 
     <fieldset class="privacy-all">
-      <label>{{ _('Make all of my profile fields visible to:') }}</label>
+      <label for="privacy-global-settings">
+        {{ _('Make all of my profile fields visible to:') }}
+      </label>
       <select id="privacy-global-settings">
         <option value="-1" selected>{{ _('-- No Change --') }}</option>
         <option value="3">{{ _('Mozillians') }}</option>
@@ -94,15 +96,17 @@
     <fieldset>
       <h2>{{ _('Basic Information') }}</h2>
       <div id="photo">
-        <label>{{ _('Profile Photo') }}</label>
+        <label for="id_photo"> {{ _('Profile Photo') }} </label>
         <div class="profile-photo">
           <img src="{{ profile.get_photo_url('70x70') }}" alt="{{ _('Profile photo') }}">
         </div>
         <input class="input-file" id="id_photo" type="file" name="photo">
         {% if profile.photo %}
           <div id="id_photo_delete">
-            <input type="checkbox" name="photo-clear">
-            <label>{{ _('Remove Profile Photo') }}</label>
+            <label>
+              <input type="checkbox" name="photo-clear">
+              {{ _('Remove Profile Photo') }}
+            </label>
           </div>
         {% endif %}
         {{ privacy_field(profile_form.privacy_photo) }}
@@ -304,9 +308,11 @@
             </h4>
             {% for t_select in t_choices[7:14] %}
               <div class="tshirt-option">
-                <input{% if profile.tshirt == t_select.0  %} checked{% endif %}
-                type="radio" name="tshirt" value="{{ t_select.0 }}">
-                <label>{{ t_select.1 }}</label>
+                <label>
+                  <input {% if profile.tshirt == t_select.0  %} checked {% endif %}
+                    type="radio" name="tshirt" value="{{ t_select.0 }}">
+                  {{ t_select.1 }}
+                </label>
               </div>
             {% endfor %}
           </div>
@@ -455,37 +461,30 @@
     </fieldset>
 
     {% if profile.is_complete %}
-      <fieldset id="invites">
-        <h2>{{ _('Vouches & Invites') }}</h2>
-        <h5>{{ _('Vouched By') }}</h5>
-        {% if profile.vouched_by %}
-          <a href="{{ url('phonebook:profile_view', profile.vouched_by.user.username) }}" class="vouched">
-            {{ profile.vouched_by.display_name }}
-          </a>
-        {% elif profile.is_vouched %}
-          {{ _('You are automatically vouched!') }}
+      <fieldset id="account-status">
+        <h2>{{ _('Account status') }}</h2>
+        <h5>
+        Vouched:
+        {% if profile.is_vouched %}
+          ✔  {{ _('Yes, you can view all profiles and access other Mozilla sites as a vouched Mozillian.') }}
         {% else %}
-          {% trans profile_url=absolutify(url('phonebook:profile_view', user.username)) %}
-            You aren't vouched! Send this link to a mozillian
-            who can vouch for your contributions:
-            <em class="underline" title="Your profile URL">
-              {{ profile_url }}
-            </em>
+          ✘  {{ _('No, you can only access public Mozillian profiles.') }}
+        {% endif %}
+        </h5>
+        <h5>
+        Can vouch others:
+        {% if profile.can_vouch %}
+          ✔  {{ _('Yes, you can vouch for others.') }}
+        {% else %}
+          ✘
+          {% trans %}
+            No, you need at least {{ vouch_threshold }} vouches to vouch for others.
           {% endtrans %}
         {% endif %}
-        {% if profile.vouches_made.exists() %}
-          <h5>{{ _('Vouchees') }}</h5>
-          <ul class="vouchees">
-            {% for vouch in profile.vouches_made.all() %}
-              <li>
-                <a href="{{ url('phonebook:profile_view', vouch.vouchee.user.username) }}" class="vouched">
-                  {{ vouch.vouchee.display_name }}
-                </a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-
+        </h5>
+        {% trans vouching_url='https://wiki.mozilla.org/Mozillians/Vouching' %}
+          <a href="{{ vouching_url }}">Read more about vouching.</a>
+        {% endtrans %}
       </fieldset>
     {% endif %}
 
