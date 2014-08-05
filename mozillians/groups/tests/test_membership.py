@@ -152,7 +152,6 @@ class TestGroupRemoveMember(TestCase):
     def test_remove_member_send_mail(self):
         # when curator remove someone, sent mail to member
         curator = UserFactory()
-        print "I am calling"
         self.group_curator = curator.userprofile
         self.group.save()
         user = UserFactory()
@@ -162,7 +161,6 @@ class TestGroupRemoveMember(TestCase):
         with patch('mozillians.groups.models.member_removed_email', autospec=True) as mock_email:
             with self.login(curator) as client:
                 response = client.post(url, follow=False)
-        print "Response is.....%s"%response
         eq_(302, response.status_code)
         # email sent for curated group
         ok_(mock_email.delay_called)
