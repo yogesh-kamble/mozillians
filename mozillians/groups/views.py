@@ -145,7 +145,7 @@ def show(request, url, alias_model, template):
         # Sort them with most members first.
         # Bug 1030673:To get common skills, first group by skill_name and then
         # order by skill_count and then skill_name.
-        skills = (Skill.object
+        skills = (Skill.objects
                   .filter(members__in=memberships.values_list('userprofile', flat=True))
                   .order_by('-member_count'))
         data.update(skills=skills, membership_filter_form=membership_filter_form)
