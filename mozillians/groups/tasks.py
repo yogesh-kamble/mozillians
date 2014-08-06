@@ -113,6 +113,7 @@ def email_membership_change(group_pk, user_pk, old_status, new_status):
     send_mail(subject, body, settings.FROM_NOREPLY,
               [user.email], fail_silently=False)
 
+
 @task(ignore_result=True)
 def member_removed_email(group_pk, user_pk, old_status):
     """
@@ -123,11 +124,11 @@ def member_removed_email(group_pk, user_pk, old_status):
     user = User.objects.get(pk=user_pk)
     tower.activate('en-us')
     template_name = 'groups/email/member_removed.txt'
-    subject = _('Removed from Mozillians group "%s"') %group.name
+    subject = _('Removed from Mozillians group "%s"') % group.name
     template = get_template(template_name)
     context = {
-          'group':group,
-          'user_name':user,
+        'group': group,
+        'user_name': user,
     }
     body = template.render(Context(context))
     send_mail(subject, body, settings.FROM_NOREPLY,

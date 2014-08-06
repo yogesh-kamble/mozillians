@@ -293,7 +293,7 @@ class Group(GroupBase):
             email_membership_change.delay(self.pk, userprofile.user.pk,
                                           old_status, None)
         elif old_status == GroupMembership.MEMBER and send_email:
-            #Member removed
+            # Member removed
             member_removed_email.delay(self.pk, userprofile.user.pk, old_status)
 
     def has_member(self, userprofile):

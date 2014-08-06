@@ -167,4 +167,3 @@ class TestGroupRemoveMember(TestCase):
         group_pk, user_pk = mock_email.delay.call_args[0]
         eq_(self.group.pk, group_pk)
         eq_(user.pk, user_pk)
-
