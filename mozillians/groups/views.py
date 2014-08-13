@@ -145,9 +145,13 @@ def show(request, url, alias_model, template):
         # Sort them with most members first.
         # Bug 1030673:To get common skills, first group by skill_name and then
         # order by skill_count and then skill_name.
-        skills = (Skill.objects
-                  .filter(members__in=memberships.values_list('userprofile', flat=True))
-                  .order_by('-member_count'))
+        
+        # Get the UserProfile Id list.
+        userprofile_id_list = UserProfile.objects.filter(groupmembership__in=memberships)
+        # Fix me. Getting common skills_id among group and count of each skill_id across group
+        skill_id_tuple_list = userprofile_id_list.values_list("skills").annotate(skill_count=Count("skills")).order_by("-skill_count", "skills__name") 
+        # Fix me. Create Skill object list from skill_id_tuple_list
+        skills = [Skill.objects.get(id=skill_id) for skill_id, count in skill_id_tuple_list]
         data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
