@@ -152,7 +152,8 @@ def show(request, url, alias_model, template):
             annotate(skill_count=Count("skills")).\
             order_by("-skill_count", "skills__name")
         # Fix me. Create Skill object list from skill_id_tuple_list
-        skills = [Skill.objects.get(id=skill_id) for skill_id, count in skill_id_tuple_list]
+        skills = [Skill.objects.get(id=skill_id) for skill_id, count in skill_id_tuple_list \
+        if skill_id]
         data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
