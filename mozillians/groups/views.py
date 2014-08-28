@@ -148,13 +148,15 @@ def show(request, url, alias_model, template):
         # Get the UserProfile Id list.
         userprofile_id_list = UserProfile.objects.filter(groupmembership__in=memberships)
         # Fix me. Getting common skills_id among group and count of each skill_id across group
-        skill_id_tuple_list = userprofile_id_list.values_list("skills").\
-            annotate(skill_count=Count("skills")).\
-            order_by("-skill_count", "skills__name")
-        # Fix me. Create Skill object list from skill_id_tuple_list
-        skills = [Skill.objects.get(id=skill_id) for skill_id,
-                  count in skill_id_tuple_list if skill_id]
-        data.update(skills=skills, membership_filter_form=membership_filter_form)
+        shared_skill_ids = userprofile_id_list.values_list("skills").\
+                                        annotate(skill_count=Count("skills")).\
+                                        order_by("-skill_count", "skills__name")
+        # If group members does not have any skills then shared skill ids will
+        # be [(None, 0)]
+        if (shared_skill_ids[0][0]):
+            # Fix me. Create Skill object list from skill_id_tuple_list
+            skills = [Skill.objects.get(id=skill_id) for skill_id, count in shared_skill_ids]
+            data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
     paginator = Paginator(memberships, settings.ITEMS_PER_PAGE)
