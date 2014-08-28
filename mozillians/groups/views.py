@@ -150,8 +150,8 @@ def show(request, url, alias_model, template):
         userprofile_id_list = UserProfile.objects.filter(groupmembership__in=memberships)
         # Fix me. Getting common skills_id among group and count of each skill_id across group
         shared_skill_ids = userprofile_id_list.values_list("skills").\
-                                        annotate(skill_count=Count("skills")).\
-                                        order_by("-skill_count", "skills__name")
+                                    annotate(skill_count=Count("skills")).\
+                                    order_by("-skill_count", "skills__name")
         # If group members does not have any skills then shared skill ids will
         # be [(None, 0)]
         if (shared_skill_ids[0][0]):
