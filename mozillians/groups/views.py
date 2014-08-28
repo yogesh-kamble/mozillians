@@ -146,6 +146,7 @@ def show(request, url, alias_model, template):
         # Bug 1030673:To get common skills, first group by skill_name and then
         # order by skill_count and then skill_name.
         # Get the UserProfile Id list.
+        skills = None
         userprofile_id_list = UserProfile.objects.filter(groupmembership__in=memberships)
         # Fix me. Getting common skills_id among group and count of each skill_id across group
         shared_skill_ids = userprofile_id_list.values_list("skills").\
@@ -156,7 +157,7 @@ def show(request, url, alias_model, template):
         if (shared_skill_ids[0][0]):
             # Fix me. Create Skill object list from skill_id_tuple_list
             skills = [Skill.objects.get(id=skill_id) for skill_id, count in shared_skill_ids]
-            data.update(skills=skills, membership_filter_form=membership_filter_form)
+        data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
     paginator = Paginator(memberships, settings.ITEMS_PER_PAGE)
