@@ -627,7 +627,7 @@ class UserProfile(UserProfilePrivacyModel, SearchMixin):
             'first_vouch': number_of_vouches == 1,
             'can_vouch_threshold': number_of_vouches == settings.CAN_VOUCH_THRESHOLD,
         })
-        subject = _(u'You are now vouched on Mozillians.org')
+        subject = _(u'You have been vouched on Mozillians.org')
         filtered_message = message.replace('&#34;', '"').replace('&#39;', "'")
         send_mail(subject, filtered_message, settings.FROM_NOREPLY,
                   [self.user.email])
@@ -872,6 +872,9 @@ class ExternalAccount(models.Model):
     TYPE_LANYRD = 'LANYRD'
     TYPE_LANDLINE = 'Phone (Landline)'
     TYPE_MOBILE = 'Phone (Mobile)'
+    TYPE_MOVERBATIM = 'MOZILLAVERBATIM'
+    TYPE_MOLOCOMOTION = 'MOZILLALOCOMOTION'
+    TYPE_TRANSIFEX = 'TRANSIFEX'
 
     # Account type field documentation:
     # name: The name of the service that this account belongs to. What
@@ -909,7 +912,7 @@ class ExternalAccount(models.Model):
                        'url': 'https://twitter.com/{identifier}',
                        'validator': validate_twitter},
         TYPE_AIM: {'name': 'AIM', 'url': ''},
-        TYPE_GTALK: {'name': 'Google Talk',
+        TYPE_GTALK: {'name': 'Google+ Hangouts',
                      'url': '',
                      'validator': validate_email},
         TYPE_SKYPE: {'name': 'Skype', 'url': ''},
@@ -945,7 +948,15 @@ class ExternalAccount(models.Model):
         TYPE_MOBILE: {'name': 'Phone (Mobile)',
                       'url': '',
                       'validator': validate_phone_number},
-
+        TYPE_MOVERBATIM: {'name': 'Mozilla Verbatim',
+                          'url': 'https://localize.mozilla.org/accounts/{identifier}/',
+                          'validator': validate_username_not_url},
+        TYPE_MOLOCOMOTION: {'name': 'Mozilla Locomotion',
+                            'url': 'http://mozilla.locamotion.org/accounts/{identifier}/',
+                            'validator': validate_username_not_url},
+        TYPE_TRANSIFEX: {'name': 'Transifex',
+                         'url': 'https://www.transifex.com/accounts/profile/{identifier}/',
+                         'validator': validate_username_not_url},
     }
 
     user = models.ForeignKey(UserProfile)
