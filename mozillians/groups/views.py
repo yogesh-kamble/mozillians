@@ -3,7 +3,7 @@ import json
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import EmptyPage, Paginator, PageNotAnInteger
-from django.db.models import Q, Count
+from django.db.models import Count, Q
 from django.http import HttpResponse, HttpResponseBadRequest, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import cache_control, never_cache
@@ -148,15 +148,12 @@ def show(request, url, alias_model, template):
         # Get the UserProfile Id list.
         skills = None
         userprofile_id_list = UserProfile.objects.filter(groupmembership__in=memberships)
-        # Fix me. Getting common skills_id among group and count of each skill_id across group
-        shared_skill_ids = userprofile_id_list.values_list('skills').\
-                                    annotate(skill_count=Count('skills')).\
-                                    order_by('-skill_count', 'skills__name')
-        # If group members does not have any skills then shared skill ids will
-        # be [(None, 0)]
-        if (shared_skill_ids[0][0]):
-            # Fix me. Create Skill object list from skill_id_tuple_list
-            skills = [Skill.objects.get(id=skill_id) for skill_id, count in shared_skill_ids]
+        # Getting common skills_id among group and count of each skill_id across group
+        shared_skill_ids = userprofile_id_list.values_list('skills', flat=True).\
+            annotate(skill_count=Count('skills')).\
+            order_by('-skill_count', 'skills__name')
+        # Create Skill object list from skill_id_tuple_list
+        skills = [Skill.objects.get(id=skill_id) for skill_id in shared_skill_ids]
         data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
