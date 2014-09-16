@@ -152,8 +152,10 @@ def show(request, url, alias_model, template):
         shared_skill_ids = userprofile_id_list.values_list('skills', flat=True).\
             annotate(skill_count=Count('skills')).\
             order_by('-skill_count', 'skills__name')
-        # Create Skill object list from skill_id_tuple_list
-        skills = [Skill.objects.get(id=skill_id) for skill_id in shared_skill_ids]
+        # If group doesn not have any skills then list will [None]
+        if shared_skill_ids and shared_skill_ids[0]:
+            # Create Skill object list from skill_id list
+            skills = [Skill.objects.get(id=skill_id) for skill_id in shared_skill_ids]
         data.update(skills=skills, membership_filter_form=membership_filter_form)
 
     page = request.GET.get('page', 1)
