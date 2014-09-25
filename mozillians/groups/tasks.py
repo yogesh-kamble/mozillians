@@ -117,7 +117,7 @@ def email_membership_change(group_pk, user_pk, old_status, new_status):
 @task(ignore_result=True)
 def member_removed_email(group_pk, user_pk, old_status):
     """
-     Email to member when he is removed from group
+    Email to member when he is removed from group
     """
     Group = get_model('groups', 'Group')
     group = Group.objects.get(pk=group_pk)
